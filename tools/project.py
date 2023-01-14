@@ -83,7 +83,7 @@ def image_json_extract(tfrecord_file):
 
             #create image path
             frame_json_directory = LABEL_PATH + '/' + class_path +'/'+ FILE_HEAD_TAG + frame.context.name + FILE_TAIL_TAG
-            json_name = frame_json_directory + '/' + str(frame.timestamp_micros) + '0' + str(calibration.name - 1) + '.json'
+            json_name = frame_json_directory + '/' + str(frame.timestamp_micros) + '00.' + str(calibration.name - 1) + '.json'
 
             extrinsic=np.array(calibration.extrinsic.transform).reshape(4,4)
             intrinsic_orig = calibration.intrinsic
