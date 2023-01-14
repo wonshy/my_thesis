@@ -260,6 +260,8 @@ class lane_dataset(Dataset):
         self.n_samples = len(self._label_list)
 
         if save_std is True:
+            if not os.path.exists(args.save_path):
+                os.makedirs(args.save_path)
             with open(ops.join(args.save_path, 'geo_anchor_std.json'), 'w') as jsonFile:
                 json_out = {}
                 json_out["x_off_std"] = self._x_off_std.tolist()
@@ -640,6 +642,8 @@ class lane_dataset(Dataset):
         else:
             raise Exception("openlane version not supported")
 
+        if not os.path.exists(self.save_json_path):
+            os.makedirs(self.save_json_path)
         if not ops.isfile(train_idx_file):
             with open(train_idx_file, 'w') as f:
                 json.dump(idx_path, f)
