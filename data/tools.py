@@ -175,6 +175,7 @@ def resample_laneline_in_y(input_lane, y_steps, out_vis=False):
     # at least two points are included
     assert (input_lane.shape[0] >= 2)
 
+    #为了差不在范围内的点，范围外（不是太大）的点可以采用。
     y_min = np.min(input_lane[:, 1]) - 5
     y_max = np.max(input_lane[:, 1]) + 5
 

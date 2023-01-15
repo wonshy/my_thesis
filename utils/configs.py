@@ -35,6 +35,8 @@ def config(args):
     dataset_path = os.path.join(root_path, "openlane")
     args.dataset_dir = ops.join(dataset_path, 'images/')
     args.data_dir = ops.join(dataset_path, 'lane3d_1000/')
+    args.extend_dataset_dir = ops.join(dataset_path, 'extend/images/')
+    args.extend_data_dir = ops.join(dataset_path, 'extend/lane3d_1000/')
 
     # sav path
     args.save_prefix = ops.join(os.getcwd(), 'data_splits')

@@ -1,6 +1,5 @@
 import argparse
 import os
-import os.path as ops
 import torch
 import time
 
@@ -286,7 +285,7 @@ class Runner:
 
             
         # Get Dataset
-        self.val_gt_file = ops.join(args.save_path, 'test.json')
+        self.val_gt_file = os.path.join(args.save_path, 'test.json')
         # TODO:GPU need?
         # self.train_dataset, self.train_loader, self.train_sampler = self._get_train_dataset()
         # # self.valid_dataset, self.valid_loader, self.valid_sampler = self._get_valid_dataset()
@@ -311,11 +310,11 @@ class Runner:
             self.writer = SummaryWriter(tensorboard_path)
 
 
-
     def _get_train_dataset(self):
         args = self.args
-        train_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'training/', args, data_aug=True,
-                                     save_std=True)
+        train_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'training/', 
+                    args.extend_dataset_dir, args.extend_data_dir + 'training/',
+                    args, data_aug=True,save_std=True)
 
         # TODO:GPU need?
         # # train_dataset.normalize_lane_label()
@@ -329,7 +328,9 @@ class Runner:
 
         args = self.args
 
-        valid_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'validation/', args)
+        valid_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'validation/',
+                    args.extend_dataset_dir, args.extend_data_dir + 'validation/', args)
+
         # assign std of valid dataset to be consistent with train dataset
         valid_dataset.set_x_off_std(self.train_dataset._x_off_std)
         valid_dataset.set_z_std(self.train_dataset._z_std)
@@ -521,7 +522,7 @@ class Runner:
             end = time.time()
             for i, (
                     idx_json_file, image, gt_anchor, idx, gt_cam_height,
-                    gt_cam_pitch, intrinsics, extrinsics, aug_mat, seg_name,
+                    gt_cam_pitch, intrinsics, extrinsics, aug_mat,
                     rots, trans
             ) in tqdm(enumerate(train_loader)):
                 # Time dataloader
@@ -682,7 +683,7 @@ class Runner:
 
             for i, (
                     json_files, image, gt_anchor, idx, gt_cam_height,
-                    gt_cam_pitch, intrinsics, extrinsics, seg_name,
+                    gt_cam_pitch, intrinsics, extrinsics,
                     rots, trans
             ) in tqdm(enumerate(loader)):
             
