@@ -151,7 +151,7 @@ def config(args):
 
     args.bsz = args.batch_size
 
-    args.nworkers = 8
+    args.nworkers = 4
 
     args.lr = 1e-3
     args.weight_decay = 1e-7

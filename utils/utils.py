@@ -218,21 +218,6 @@ def first_run(save_path):
     return ''
 
 
-
-# class dataloader(NuscData):
-#     def __init__(self, *args, **kwargs):
-#         super(dataloader, self).__init__(*args, **kwargs)
-#
-#     def __getitem__(self, index):
-#         rec = self.ixes[index]
-#
-#         cams = self.choose_cams()
-#         imgs, rots, trans, intrins, post_rots, post_trans = self.get_image_data(rec, cams)
-#         binimg = self.get_binimg(rec)
-#
-#         return imgs, rots, trans, intrins, post_rots, post_trans, binimg
-
-
 class Runner:
     def __init__(self, args):
         
@@ -521,9 +506,8 @@ class Runner:
             # compute timing
             end = time.time()
             for i, (
-                    idx_json_file, image, gt_anchor, idx, gt_cam_height,
-                    gt_cam_pitch, intrinsics, extrinsics, aug_mat,
-                    rots, trans
+                    idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, aug_mat,
+                    rots, trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans
             ) in tqdm(enumerate(train_loader)):
                 # Time dataloader
                 data_time.update(time.time() - end)
@@ -535,15 +519,25 @@ class Runner:
                     intrinsics = intrinsics.cuda()
                     rots = rots.cuda()
                     trans = trans.cuda()
+                    
+                    all_rots = all_rots.cuda()
+                    all_trans = all_trans.cuda()
+                    all_intrinsics = all_intrinsics.cuda()
+
                 image = image.contiguous().float()
                 # # Run model
                 optimizer.zero_grad()
 
-                preds = self.model(image,
-                                   rots, trans,
-                                   intrinsics
-                                   )
+                # preds = self.model(image,
+                #                    rots, trans,
+                #                    intrinsics
+                #                    )
 
+
+                preds = self.model(images,
+                                   all_rots, all_trans,
+                                   all_intrinsics
+                                   )
 
                 loss, loss_3d_dict = criterion(preds, gt_anchor)
                 # print(loss_3d_dict)
@@ -558,7 +552,6 @@ class Runner:
                 # update params
                 optimizer.step()
 
-
                 #这里重点查看
                 # reduce loss from all gpu, then update losses
                 loss_list = [losses, losses_3d_vis, losses_3d_prob, losses_3d_reg]
@@ -568,15 +561,12 @@ class Runner:
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-
                 # Print info
                 if (i + 1) % args.print_freq == 0 and args.proc_id == 0:
                     print('Epoch: [{0}][{1}/{2}]\t'
                         'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                         'Loss {loss.val:.8f} ({loss.avg:.8f})'.format(epoch+1, i+1, len(train_loader), 
                                             batch_time=batch_time, data_time=data_time, loss=loss_list[0]))
-
-
 
 
             # Adjust learning rate
@@ -637,8 +627,6 @@ class Runner:
             writer.close()
 
 
-
-
     def save_checkpoint(self, state, to_copy, epoch, save_path):
         filepath = os.path.join(save_path, 'checkpoint_model_epoch_{}.pth.tar'.format(epoch))
         torch.save(state, filepath)
@@ -682,9 +670,8 @@ class Runner:
         with torch.no_grad():
 
             for i, (
-                    json_files, image, gt_anchor, idx, gt_cam_height,
-                    gt_cam_pitch, intrinsics, extrinsics,
-                    rots, trans
+                    json_files, image, gt_anchor, idx, intrinsics, extrinsics,
+                    rots, trans, images, all_intrinsics, all_extrinsics, all_rots, all_trans
             ) in tqdm(enumerate(loader)):
             
                 if not args.no_cuda:
@@ -693,14 +680,21 @@ class Runner:
                     extrinsics = extrinsics.cuda()
                     rots = rots.cuda()
                     trans = trans.cuda()
+                    all_rots = all_rots.cuda()
+                    all_trans = all_trans.cuda()
+                    all_intrinsics = all_intrinsics.cuda()
 
                 image = image.contiguous().float()
 
                # Inference model
-                preds = self.model(image,
-                                   rots, trans,
-                                   intrinsics
-                                   )
+                # preds = self.model(image,
+                #                    rots, trans,
+                #                    intrinsics
+                #                    )
+                preds = self.model(images,
+                    all_rots, all_trans,
+                    all_intrinsics
+                    )
 
                 loss, loss_3d_dict = criterion(preds, gt_anchor)
                 # losses += loss

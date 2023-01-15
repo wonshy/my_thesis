@@ -7,6 +7,7 @@ import glob
 import random
 import pickle
 import warnings
+import torch
 import torchvision
 from pathlib import Path
 import numpy as np
@@ -17,20 +18,13 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import torchvision.transforms.functional as F
 from torchvision.transforms import InterpolationMode
-from utils.utils import *
 from scipy.interpolate import UnivariateSpline
+
+from data.tools import *
 
 sys.path.append('./')
 warnings.simplefilter('ignore', np.RankWarning)
 
-
-def homograpthy_g2im(cam_pitch, cam_height, K):
-    # transform top-view region to original image region
-    R_g2c = np.array([[1, 0, 0],
-                      [0, np.cos(np.pi / 2 + cam_pitch), -np.sin(np.pi / 2 + cam_pitch)],
-                      [0, np.sin(np.pi / 2 + cam_pitch), np.cos(np.pi / 2 + cam_pitch)]])
-    H_g2im = np.matmul(K, np.concatenate([R_g2c[:, 0:2], [[0], [cam_height], [0]]], 1))
-    return H_g2im
 
 
 def homographic_transformation(Matrix, x, y):
@@ -175,7 +169,14 @@ class lane_dataset(Dataset):
         # expect same mean/std for all torchvision models
         # mean = [0.485, 0.456, 0.406]
         # std = [0.229, 0.224, 0.225]
-        self.normalize = transforms.Normalize(args.vgg_mean, args.vgg_std)
+        #self.normalize = transforms.Normalize(args.vgg_mean, args.vgg_std)
+
+        self.normalize = torchvision.transforms.Compose((
+                        torchvision.transforms.ToTensor(),
+                        torchvision.transforms.Normalize(mean=args.vgg_mean,
+                                        std=args.vgg_std),
+        ))
+
         self.data_aug = data_aug
         self.dataset_base_dir = dataset_base_dir
         self.json_file_path = json_file_path
@@ -278,30 +279,12 @@ class lane_dataset(Dataset):
 
         # ======= step 1 =======
         # preprocess data from json file
-        img_name, gt_cam_height, gt_cam_pitch, extrinsics, intrinsics, \
+        img_name, extrinsics, intrinsics, \
         gt_lanes, gt_vis_inds, gt_category_3d, \
         _laneline_ass_id = self.preprocess_data_from_json_openlane(idx_json_file)
 
-
-
-
-
-        # ###########base data#####################
-        # image=''
-        # # original way
-        # with open(img_name, 'rb') as f:
-        #     image = (Image.open(f).convert('RGB'))
-
-        # #数据增强可以在这里完成
-        # # image preprocess with crop and resize
-        # image = F.crop(image, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
-        # image = F.resize(image, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
-
-        # ###########extend data#####################
-
-        image, images, all_extrinsics, all_intrinsics=self.image_data_get(idx_json_file, img_name,
+        image, images, all_extrinsics, all_intrinsics, all_rots, all_trans=self.image_data_get(idx_json_file, img_name,
          intrinsics, extrinsics)
-
 
 
         gt_anchor = np.zeros([self.anchor_num, self.num_types, self.anchor_dim], dtype=np.float32)
@@ -327,14 +310,10 @@ class lane_dataset(Dataset):
         if self.data_aug:
             img_rot, aug_mat = data_aug_rotate(image)
             image = Image.fromarray(img_rot)
-        image = self.totensor(image).float()
+        # image = self.totensor(image).float()
         image = self.normalize(image)
         gt_anchor = gt_anchor.reshape([self.anchor_num, -1])
         gt_anchor = torch.from_numpy(gt_anchor)
-        gt_cam_height = torch.tensor(gt_cam_height, dtype=torch.float32)
-        gt_cam_pitch = torch.tensor(gt_cam_pitch, dtype=torch.float32)
-        # gt_category_2d = torch.from_numpy(gt_category_2d)
-        # gt_category_3d = torch.tensor(gt_category_3d, dtype=torch.int)
         intrinsics = torch.from_numpy(intrinsics)
         extrinsics = torch.from_numpy(extrinsics)
 
@@ -350,8 +329,8 @@ class lane_dataset(Dataset):
 
         if self.data_aug:
             aug_mat = torch.from_numpy(aug_mat.astype(np.float32))
-            return idx_json_file, image, gt_anchor, idx, gt_cam_height, gt_cam_pitch, intrinsics, extrinsics, aug_mat, rots,trans
-        return idx_json_file, image, gt_anchor, idx, gt_cam_height, gt_cam_pitch, intrinsics, extrinsics, rots,trans
+            return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, aug_mat, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans
+        return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans
 
     # old getitem, workable
     def __getitem__(self, idx):
@@ -360,8 +339,6 @@ class lane_dataset(Dataset):
     def preprocess_data_from_json_openlane(self, idx_json_file):
 
         _label_image_path = None
-        _label_cam_height = None
-        _label_cam_pitch = None
         cam_extrinsics = None
         cam_intrinsics = None
 
@@ -379,18 +356,8 @@ class lane_dataset(Dataset):
             # Re-calculate extrinsic matrix based on ground coordinate
             cam_extrinsics = self.extrinsic_recalculate(cam_extrinsics)
 
-            # gt_cam_height = info_dict['cam_height']
-            gt_cam_height = cam_extrinsics[2, 3]
-            if 'cam_pitch' in info_dict:
-                gt_cam_pitch = info_dict['cam_pitch']
-            else:
-                gt_cam_pitch = 0
-
             cam_intrinsics = info_dict['intrinsic']
             cam_intrinsics = np.array(cam_intrinsics)
-
-            _label_cam_height = gt_cam_height
-            _label_cam_pitch = gt_cam_pitch
 
             gt_lanes_packed = info_dict['lane_lines']
             gt_lane_pts, gt_lane_visibility, gt_laneline_category = [], [], []
@@ -477,7 +444,7 @@ class lane_dataset(Dataset):
             lane[:, 0] = np.divide(lane[:, 0], self._x_off_std)
             lane[:, 1] = np.divide(lane[:, 1], self._z_std)
 
-        return _label_image_path, _label_cam_height, _label_cam_pitch, cam_extrinsics, cam_intrinsics, \
+        return _label_image_path, cam_extrinsics, cam_intrinsics, \
                gt_anchors, visibility_vectors, category_ids, ass_ids
 
 
@@ -623,6 +590,9 @@ class lane_dataset(Dataset):
         all_intrinsics = []
         all_extrinsics = []
 
+        all_trans = []
+        all_rots = []
+
         #base
         main_image=''
         with open(main_image_path, 'rb') as f:
@@ -631,11 +601,19 @@ class lane_dataset(Dataset):
             # image preprocess with crop and resize
             main_image = F.crop(main_image, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
             main_image = F.resize(main_image, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
-            images.append(main_image)
-    
-        all_intrinsics.append(torch.Tensor(main_instrinsic))
-        all_extrinsics.append(torch.Tensor(main_extrinsic))
+            images.append(self.normalize(main_image)) #注意这里图像数据没有转换成tensor
+        main_instrinsic=torch.Tensor(main_instrinsic)
+        main_extrinsic= torch.Tensor(main_extrinsic)
+        all_intrinsics.append(main_instrinsic)
+        all_extrinsics.append(main_extrinsic)
 
+################################################################
+
+        trans = main_extrinsic[0:3, 3]
+        rots = main_extrinsic[0:3, 0:3]
+        all_trans.append(trans)
+        all_rots.append(rots)
+################################################################
 
         for extend_num in range(1, 5):
             #extend label 
@@ -655,18 +633,26 @@ class lane_dataset(Dataset):
                 extrinsic = np.array(info_dict['extrinsic'])
                 # Re-calculate extrinsic matrix based on ground coordinate
                 extrinsic = self.extrinsic_recalculate(extrinsic)
-                all_intrinsics.append(torch.Tensor(intrinsic))
-                all_extrinsics.append(torch.Tensor(extrinsic))  
 
+                intrinsic=torch.Tensor(intrinsic)
+                extrinsic=torch.Tensor(extrinsic)
+                all_intrinsics.append(intrinsic)
+                all_extrinsics.append(extrinsic)  
+################################################################
+                #add by wucunyin.....
+                trans = extrinsic[0:3, 3]
+                rots = extrinsic[0:3, 0:3]
+                all_trans.append(trans)
+                all_rots.append(rots)
+################################################################
                 with open(extend_image_path, 'rb') as f:
                     img = (Image.open(f).convert('RGB'))
                     #数据增强可以在这里完成
                     # image preprocess with crop and resize
                     img = F.crop(img, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
                     img = F.resize(img, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
-                    images.append(img)
-
-        return main_image, images, all_extrinsics, all_intrinsics
+                    images.append(self.normalize(img)) #注意这里图像数据没有转换成tensor
+        return main_image, torch.stack(images), torch.stack(all_extrinsics), torch.stack(all_intrinsics), torch.stack(all_rots), torch.stack(all_trans) 
 
 
 
