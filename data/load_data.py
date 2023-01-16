@@ -162,7 +162,8 @@ def homography_crop_resize(org_img_size, crop_y, resize_img_size):
 
 class lane_dataset(Dataset):
     # dataset_base_dir is image path, json_file_path is json file path,
-    def __init__(self, dataset_base_dir, json_file_path, extend_dataset_base_dir, extend_json_file_path, args, data_aug=False, save_std=False):
+    def __init__(self, dataset_base_dir, json_file_path, extend_dataset_base_dir,
+     extend_json_file_path, args, data_aug_conf, is_data_aug=False, save_std=False):
 
         # define image pre-processor
         self.totensor = transforms.ToTensor()
@@ -177,7 +178,9 @@ class lane_dataset(Dataset):
                                         std=args.vgg_std),
         ))
 
-        self.data_aug = data_aug
+        self.is_data_aug = is_data_aug
+        self.data_aug_conf = data_aug_conf
+         
         self.dataset_base_dir = dataset_base_dir
         self.json_file_path = json_file_path
         self.extend_dataset_base_dir = extend_dataset_base_dir
@@ -283,8 +286,8 @@ class lane_dataset(Dataset):
         gt_lanes, gt_vis_inds, gt_category_3d, \
         _laneline_ass_id = self.preprocess_data_from_json_openlane(idx_json_file)
 
-        image, images, all_extrinsics, all_intrinsics, all_rots, all_trans=self.image_data_get(idx_json_file, img_name,
-         intrinsics, extrinsics)
+        image, images, all_extrinsics, all_intrinsics, all_rots, all_trans, all_post_rots, all_post_trans=self.image_data_get(
+            idx_json_file, img_name, intrinsics, extrinsics)
 
 
         gt_anchor = np.zeros([self.anchor_num, self.num_types, self.anchor_dim], dtype=np.float32)
@@ -307,9 +310,9 @@ class lane_dataset(Dataset):
             gt_anchor[ass_id, 0, self.anchor_dim - self.num_category] = 0.0
             gt_anchor[ass_id, 0, self.anchor_dim - self.num_category + gt_category_3d[i]] = 1.0
 
-        if self.data_aug:
-            img_rot, aug_mat = data_aug_rotate(image)
-            image = Image.fromarray(img_rot)
+        # if self.is_data_aug:
+        #     img_rot, aug_mat = data_aug_rotate(image)
+        #     image = Image.fromarray(img_rot)
         # image = self.totensor(image).float()
         image = self.normalize(image)
         gt_anchor = gt_anchor.reshape([self.anchor_num, -1])
@@ -327,10 +330,11 @@ class lane_dataset(Dataset):
         trans = torch.unsqueeze(trans, 0)
         rots = torch.unsqueeze(rots, 0)
 
-        if self.data_aug:
-            aug_mat = torch.from_numpy(aug_mat.astype(np.float32))
-            return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, aug_mat, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans
-        return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans
+        if self.is_data_aug:
+            # aug_mat = torch.from_numpy(aug_mat.astype(np.float32))
+            aug_mat=0
+            return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, aug_mat, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans,all_post_rots, all_post_trans
+        return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans, all_post_rots, all_post_trans
 
     # old getitem, workable
     def __getitem__(self, idx):
@@ -584,6 +588,33 @@ class lane_dataset(Dataset):
         return lane_x_off_std, lane_y_off_std, lane_z_std
 
 
+    def sample_augmentation(self):
+        H, W = self.data_aug_conf['H'], self.data_aug_conf['W']
+        fH, fW = self.data_aug_conf['final_dim']
+        if self.is_train:
+            resize = np.random.uniform(*self.data_aug_conf['resize_lim'])
+            resize_dims = (int(W*resize), int(H*resize))
+            newW, newH = resize_dims
+            crop_h = int((1 - np.random.uniform(*self.data_aug_conf['bot_pct_lim']))*newH) - fH
+            crop_w = int(np.random.uniform(0, max(0, newW - fW)))
+            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+            flip = False
+            if self.data_aug_conf['rand_flip'] and np.random.choice([0, 1]):
+                flip = True
+            rotate = np.random.uniform(*self.data_aug_conf['rot_lim'])
+        else:
+            resize = max(fH/H, fW/W)
+            resize_dims = (int(W*resize), int(H*resize))
+            newW, newH = resize_dims
+            crop_h = int((1 - np.mean(self.data_aug_conf['bot_pct_lim']))*newH) - fH
+            crop_w = int(max(0, newW - fW) / 2)
+            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+            flip = False
+            rotate = 0
+        return resize, resize_dims, crop, flip, rotate
+
+
+
     def image_data_get(self, label_file, main_image_path, main_instrinsic, main_extrinsic):
 
         images = []
@@ -593,15 +624,40 @@ class lane_dataset(Dataset):
         all_trans = []
         all_rots = []
 
+        all_post_rots = []
+        all_post_trans = []
+
         #base
         main_image=''
         with open(main_image_path, 'rb') as f:
             main_image = (Image.open(f).convert('RGB'))
-            #数据增强可以在这里完成
-            # image preprocess with crop and resize
-            main_image = F.crop(main_image, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
-            main_image = F.resize(main_image, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
+
+            post_rot = torch.eye(2)
+            post_tran = torch.zeros(2)
+            resize, resize_dims, crop, flip, rotate = self.sample_augmentation()
+            main_image, post_rot2, post_tran2 = img_transform(main_image, post_rot, post_tran,
+                        resize, resize_dims, crop,
+                        flip, rotate)
+            
+            # for convenience, make augmentation matrices 3x3
+            post_tran = torch.zeros(3)
+            post_rot = torch.eye(3)
+            post_tran[:2] = post_tran2
+            post_rot[:2, :2] = post_rot2
+
+            all_post_rots.append(post_rot)
+            all_post_trans.append(post_tran)
+
+
+            # #数据增强可以在这里完成
+            # # image preprocess with crop and resize
+            # main_image = F.crop(main_image, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
+            # main_image = F.resize(main_image, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
+           
+           
             images.append(self.normalize(main_image)) #注意这里图像数据没有转换成tensor
+
+
         main_instrinsic=torch.Tensor(main_instrinsic)
         main_extrinsic= torch.Tensor(main_extrinsic)
         all_intrinsics.append(main_instrinsic)
@@ -647,12 +703,33 @@ class lane_dataset(Dataset):
 ################################################################
                 with open(extend_image_path, 'rb') as f:
                     img = (Image.open(f).convert('RGB'))
-                    #数据增强可以在这里完成
-                    # image preprocess with crop and resize
-                    img = F.crop(img, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
-                    img = F.resize(img, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
+
+                    post_rot = torch.eye(2)
+                    post_tran = torch.zeros(2)
+                    resize, resize_dims, crop, flip, rotate = self.sample_augmentation()
+                    img, post_rot2, post_tran2 = img_transform(img, post_rot, post_tran,
+                                resize, resize_dims, crop,
+                                flip, rotate)
+                    
+                    # for convenience, make augmentation matrices 3x3
+                    post_tran = torch.zeros(3)
+                    post_rot = torch.eye(3)
+                    post_tran[:2] = post_tran2
+                    post_rot[:2, :2] = post_rot2
+
+                    all_post_rots.append(post_rot)
+                    all_post_trans.append(post_tran)
+
+                    # #数据增强可以在这里完成
+                    # # image preprocess with crop and resize
+                    # img = F.crop(img, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
+                    # img = F.resize(img, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
+
                     images.append(self.normalize(img)) #注意这里图像数据没有转换成tensor
-        return main_image, torch.stack(images), torch.stack(all_extrinsics), torch.stack(all_intrinsics), torch.stack(all_rots), torch.stack(all_trans) 
+    
+        return (main_image, torch.stack(images), torch.stack(all_extrinsics), 
+                torch.stack(all_intrinsics), torch.stack(all_rots), torch.stack(all_trans) , 
+                torch.stack(all_post_rots), torch.stack(all_post_trans))
 
 
 
@@ -671,6 +748,7 @@ class lane_dataset(Dataset):
         Path("./.cache/").mkdir(parents=True, exist_ok=True)
 
         if "training/" in json_file_path:
+            self.is_train = True
             if "lane3d_1000" in json_file_path:
                 if os.path.isfile("./.cache/openlane_1000_preprocess_train_newanchor.pkl"):
                     with open("./.cache/openlane_1000_preprocess_train_newanchor.pkl", "rb") as f:
@@ -684,6 +762,7 @@ class lane_dataset(Dataset):
                         return self.read_cache_file_beta(cache_file)
 
         elif "validation/" in json_file_path:
+            self.is_train = False
             if "lane3d_1000" in json_file_path:
                 if os.path.isfile("./.cache/openlane_1000_preprocess_valid_newanchor.pkl"):
                     with open("./.cache/openlane_1000_preprocess_valid_newanchor.pkl", "rb") as f:
@@ -768,20 +847,6 @@ class lane_dataset(Dataset):
                 gt_laneline_pts_all.append(gt_lane_pts)
                 gt_laneline_visibility_all.append(gt_lane_visibility)
                 gt_laneline_category_all.append(np.array(gt_laneline_category, dtype=np.int32))
-
-
-
-            for extend_num in range(1, 5):
-                #extend label 
-                extend_label_file = self.get_extend_file(self.extend_json_file_path ,extend_num, label_file)
-
-                #extennd image
-                dataset_class='training/'
-                if "validation/" in image_path:
-                    dataset_class='validation'
-                extend_image_path =  self.get_extend_file(self.extend_dataset_base_dir + dataset_class, extend_num, image_path)
-                # print(extend_image_path)
-                #with open(extend_label_file + '', 'r') as file:
 
 
         # # ======= step 5 =======

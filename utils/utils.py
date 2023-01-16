@@ -240,7 +240,7 @@ class Runner:
             'dbound': args.dbound,
         }
         self.data_aug_conf = {
-            'resize_lim': (0.193, 0.225),
+            'resize_lim': (0.182, 0.187),
             'final_dim': (128, 352),
             'rot_lim': (-5.4, 5.4),
             'H': 1280, 'W': 1920,
@@ -299,7 +299,7 @@ class Runner:
         args = self.args
         train_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'training/', 
                     args.extend_dataset_dir, args.extend_data_dir + 'training/',
-                    args, data_aug=True,save_std=True)
+                    args, self.data_aug_conf, is_data_aug=True, save_std=True)
 
         # TODO:GPU need?
         # # train_dataset.normalize_lane_label()
@@ -314,7 +314,7 @@ class Runner:
         args = self.args
 
         valid_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'validation/',
-                    args.extend_dataset_dir, args.extend_data_dir + 'validation/', args)
+                    args.extend_dataset_dir, args.extend_data_dir + 'validation/', args,self.data_aug_conf)
 
         # assign std of valid dataset to be consistent with train dataset
         valid_dataset.set_x_off_std(self.train_dataset._x_off_std)
@@ -507,7 +507,8 @@ class Runner:
             end = time.time()
             for i, (
                     idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, aug_mat,
-                    rots, trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans
+                    rots, trans, images, all_intrinsics, all_extrinsics,
+                    all_rots, all_trans,all_post_rots, all_post_trans
             ) in tqdm(enumerate(train_loader)):
                 # Time dataloader
                 data_time.update(time.time() - end)
@@ -671,7 +672,8 @@ class Runner:
 
             for i, (
                     json_files, image, gt_anchor, idx, intrinsics, extrinsics,
-                    rots, trans, images, all_intrinsics, all_extrinsics, all_rots, all_trans
+                    rots, trans, images, all_intrinsics, all_extrinsics, 
+                    all_rots, all_trans,all_post_rots, all_post_trans
             ) in tqdm(enumerate(loader)):
             
                 if not args.no_cuda:
