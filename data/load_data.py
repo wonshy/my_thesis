@@ -678,7 +678,7 @@ class lane_dataset(Dataset):
             #extennd image
             dataset_class='training/'
             if "validation/" in main_image_path:
-                dataset_class='validation'
+                dataset_class='validation/'
             extend_image_path =  self.get_extend_file(self.extend_dataset_base_dir + dataset_class,
                 extend_num, main_image_path)
                         
