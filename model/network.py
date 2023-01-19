@@ -304,34 +304,35 @@ class LiftSplatShoot(nn.Module):
         return final
 
 
-    # def get_voxels(self, x, rots, trans, intrins, post_rots, post_trans):
-    #     geom = self.get_geometry(rots, trans, intrins, post_rots, post_trans)
-    #     x = self.get_cam_feats(x)
-    #
-    #     x = self.voxel_pooling(geom, x)
-    #
-    #     return x
-    #
-    # def forward(self, x, rots, trans, intrins, post_rots, post_trans):
-    #     x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
-    #     x = self.bevencode(x)
-    #     return x
-
-    # nn.MaxPool2d(kernel_size=2, stride=2)
-#x dim (bach size, camera num, channel, height, width)
-    def my_get_voxels(self,x, rots, trans, intrins):
-        geom = self.my_get_geometry(rots, trans, intrins)
+    def get_voxels(self, x, rots, trans, intrins, post_rots, post_trans):
+        geom = self.get_geometry(rots, trans, intrins, post_rots, post_trans)
         x = self.get_cam_feats(x)
-
+    
         x = self.voxel_pooling(geom, x)
-
+    
         return x
-    def forward(self, x, rots, trans, intrins):
-        x = self.my_get_voxels(x, rots, trans, intrins)
+    
+    def forward(self, x, rots, trans, intrins, post_rots, post_trans):
+        x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
         x = self.bevencode(x)
         x=self.head(x)
-        # print("==============")
         return x
+
+#     # nn.MaxPool2d(kernel_size=2, stride=2)
+# #x dim (bach size, camera num, channel, height, width)
+#     def my_get_voxels(self,x, rots, trans, intrins):
+#         geom = self.my_get_geometry(rots, trans, intrins)
+#         x = self.get_cam_feats(x)
+
+#         x = self.voxel_pooling(geom, x)
+
+#         return x
+    # def forward(self, x, rots, trans, intrins):
+    #     x = self.my_get_voxels(x, rots, trans, intrins)
+    #     x = self.bevencode(x)
+    #     x=self.head(x)
+    #     # print("==============")
+    #     return x
 
 
 #TODO: outC  is camera channel?

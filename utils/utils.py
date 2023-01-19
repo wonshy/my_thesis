@@ -537,7 +537,7 @@ class Runner:
 
                 preds = self.model(images,
                                    all_rots, all_trans,
-                                   all_intrinsics
+                                   all_intrinsics,all_post_rots,all_post_trans
                                    )
 
                 loss, loss_3d_dict = criterion(preds, gt_anchor)
@@ -695,7 +695,7 @@ class Runner:
                 #                    )
                 preds = self.model(images,
                     all_rots, all_trans,
-                    all_intrinsics
+                    all_intrinsics,all_post_rots,all_post_trans
                     )
 
                 loss, loss_3d_dict = criterion(preds, gt_anchor)

@@ -147,11 +147,11 @@ def config(args):
     args.eta_min = 1e-5
 
     #        args.batch_size = 2
-    args.batch_size = 8
+    args.batch_size = 12
 
     args.bsz = args.batch_size
 
-    args.nworkers = 4
+    args.nworkers = 8
 
     args.lr = 1e-3
     args.weight_decay = 1e-7
