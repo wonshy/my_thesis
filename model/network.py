@@ -84,8 +84,8 @@ class BevEncode(nn.Module):
     def __init__(self, inC):
         super(BevEncode, self).__init__()
         layers = []
-        conv2d = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1), stride=1)
-        layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(False), nn.MaxPool2d(kernel_size=2, stride=2)]
+        conv2d = nn.Conv2d(inC, inC, kernel_size=3, padding=(2,2), dilation=(2,2),stride=1) 
+        layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(True), nn.MaxPool2d(kernel_size=2, stride=2)] 
         self.features = nn.Sequential(*layers)
         self.dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1), stride=1)
 
