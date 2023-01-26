@@ -241,7 +241,8 @@ class Runner:
         }
         self.data_aug_conf = {
             'resize_lim': (0.182, 0.187),
-            'final_dim': (128, 352),
+            #'final_dim': (128, 352),
+            'final_dim': (320, 480),#good
             'rot_lim': (-5.4, 5.4),
             'H': 1280, 'W': 1920,
             'rand_flip': True,
