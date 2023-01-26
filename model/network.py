@@ -294,9 +294,9 @@ class LiftSplatShoot(nn.Module):
         else:
             x, geom_feats = QuickCumsum.apply(x, geom_feats, ranks)
 
-        # griddify (B x C x Z x X x Y)
-        final = torch.zeros((B, C, self.nx[2], self.nx[0], self.nx[1]), device=x.device)
-        final[geom_feats[:, 3], :, geom_feats[:, 2], geom_feats[:, 0], geom_feats[:, 1]] = x
+        # griddify (B x C x Z x Y x X)
+        final = torch.zeros((B, C, self.nx[2], self.nx[1], self.nx[0]), device=x.device)
+        final[geom_feats[:, 3], :, geom_feats[:, 2], geom_feats[:, 1], geom_feats[:, 0]] = x
 
         # collapse Z
         final = torch.cat(final.unbind(dim=2), 1)
