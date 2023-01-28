@@ -127,8 +127,14 @@ def config(args):
     # args.zbound = [-10.0, 10.0, 20.0]
     # args.dbound = [4.0, 45.0, 1.0]
 
-    args.xbound = [-52.0, 52.0, 0.5]
-    args.ybound = [-224.0, 224.0, 0.5]
+    # args.xbound = [-52.0, 52.0, 0.5]
+    # args.ybound = [-224.0, 224.0, 0.5]
+    args.ybound = [-52.0, 52.0, 0.5]
+    args.xbound = [-224.0, 224.0, 0.5]
+# 480， 320
+# 112
+# 26
+
     args.zbound = [-10.0, 10.0, 20.0]
     args.dbound = [4.0, 45.0, 1.0]
 
@@ -147,13 +153,15 @@ def config(args):
     args.eta_min = 1e-5
 
     #        args.batch_size = 2
-    args.batch_size = 12
+    args.batch_size = 1
 
     args.bsz = args.batch_size
 
     args.nworkers = 4
+    #args.nworkers = 4
 
     args.lr = 1e-3
     args.weight_decay = 1e-7
 
-    args.world_size = 1
+    args.world_size = 4
+    #args.nworkers = 4

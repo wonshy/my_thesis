@@ -30,9 +30,12 @@ class CamEncode(nn.Module):
         self.D = D
         self.C = C
 
-        self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
+        self.trunk = EfficientNet.from_pretrained("efficientnet-b6")
 
-        self.up1 = Up(320+112, 512)
+        # self.up1 = Up(320+112, 512) #b0
+        # self.up1 = Up(640+224, 512) #b7
+        self.up1 = Up(576+200, 512)  #b6
+
         self.depthnet = nn.Conv2d(512, self.D + self.C, kernel_size=1, padding=0)
 
     def get_depth_dist(self, x, eps=1e-20):
@@ -85,7 +88,7 @@ class BevEncode(nn.Module):
         super(BevEncode, self).__init__()
         layers = []
         conv2d = nn.Conv2d(inC, inC, kernel_size=3, padding=(2,2), dilation=(2,2),stride=1) 
-        layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(True), nn.MaxPool2d(kernel_size=2, stride=2)] 
+        layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
         self.features = nn.Sequential(*layers)
         self.dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1), stride=1)
 
@@ -294,9 +297,9 @@ class LiftSplatShoot(nn.Module):
         else:
             x, geom_feats = QuickCumsum.apply(x, geom_feats, ranks)
 
-        # griddify (B x C x Z x X x Y)
-        final = torch.zeros((B, C, self.nx[2], self.nx[0], self.nx[1]), device=x.device)
-        final[geom_feats[:, 3], :, geom_feats[:, 2], geom_feats[:, 0], geom_feats[:, 1]] = x
+        # griddify (B x C x Z x Y x X)
+        final = torch.zeros((B, C, self.nx[2], self.nx[1], self.nx[0]), device=x.device)
+        final[geom_feats[:, 3], :, geom_feats[:, 2], geom_feats[:, 1], geom_feats[:, 0]] = x
 
         # collapse Z
         final = torch.cat(final.unbind(dim=2), 1)
