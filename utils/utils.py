@@ -240,13 +240,16 @@ class Runner:
             'dbound': args.dbound,
         }
         self.data_aug_conf = {
-            'resize_lim': (0.182, 0.187),
+            'resize_lim': (0.123, 0.127),
+            #efficient 要求分辨率 必须32的倍数
             #'final_dim': (128, 352),
-            'final_dim': (320, 480),#good
+            # 'final_dim': (320, 480),#good
+            'final_dim': (160, 256),#good
+
             'rot_lim': (-5.4, 5.4),
             'H': 1280, 'W': 1920,
             'rand_flip': True,
-            'bot_pct_lim': (0.0, 0.22),
+            'bot_pct_lim': (0.0, 0.11),
             'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT',
                      'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT'],
             'Ncams': 1,
