@@ -30,11 +30,24 @@ class CamEncode(nn.Module):
         self.D = D
         self.C = C
 
-        self.trunk = EfficientNet.from_pretrained("efficientnet-b6")
+    
+        self.downsample = downsample
 
-        # self.up1 = Up(320+112, 512) #b0
+        # self.ref_resolution_layer = (torch.tensor(5) - torch.log2(torch.tensor(32/(self.downsample)))).int()
+        self.ref_resolution_layer = torch.log2(torch.tensor(self.downsample)).int()
+
+
+        self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
+        self.up1 = Up(320+112, 512) #b0 x16
+        # self.up1 = Up(320+24, 512, scale_factor=32/self.downsample) #b0 x4
+        
+        # self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
+        # self.up1 = Up(576+200, 512)  #b6 x16
+        # self.up1 = Up(576+72, 512, scale_factor=32/self.downsample) #b6 x8
+        # self.up1 = Up(576+40, 512, scale_factor=32/self.downsample) #b6 x4
+
+
         # self.up1 = Up(640+224, 512) #b7
-        self.up1 = Up(576+200, 512)  #b6
 
         self.depthnet = nn.Conv2d(512, self.D + self.C, kernel_size=1, padding=0)
 
@@ -74,7 +87,7 @@ class CamEncode(nn.Module):
 
         # Head
         endpoints['reduction_{}'.format(len(endpoints)+1)] = x
-        x = self.up1(endpoints['reduction_5'], endpoints['reduction_4'])
+        x = self.up1(endpoints['reduction_5'], endpoints['reduction_{:d}'.format(self.ref_resolution_layer) ])
         return x
 
     def forward(self, x):
