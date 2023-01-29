@@ -99,16 +99,29 @@ class CamEncode(nn.Module):
 class BevEncode(nn.Module):
     def __init__(self, inC):
         super(BevEncode, self).__init__()
-        layers = []
-        conv2d = nn.Conv2d(inC, inC, kernel_size=3, padding=(2,2), dilation=(2,2),stride=1) 
-        layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
-        self.features = nn.Sequential(*layers)
-        self.dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1), stride=1)
+        reduce_layers = []
+        extract_layers = []
+
+        dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(2,2), dilation=(2,2),stride=1) 
+        conv2d = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1),stride=1) 
+        reduce_layers += [dilation, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
+        extract_layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True)] 
+
+        # layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
+
+        self.reduce_features = nn.Sequential(*reduce_layers)
+        self.extruct_features = nn.Sequential(*extract_layers)
+
+
+        # self.dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1), stride=1)
 
     def forward(self, x):
-        x = self.features(x)
-        x = self.features(x)
-        x = self.features(x)
+        x = self.reduce_features(x)
+        # x = self.extruct_features(x)
+        # x = self.reduce_features(x)
+
+
+        # x = self.extruct_features(x)
         return x
 
 
@@ -330,7 +343,7 @@ class LiftSplatShoot(nn.Module):
     
     def forward(self, x, rots, trans, intrins, post_rots, post_trans):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
-        x = self.bevencode(x)
+        # x = self.bevencode(x)
         x=self.head(x)
         return x
 
