@@ -16,7 +16,12 @@ def main():
     ddp_init(args)
 
     runner = Runner(args)
-    runner.train()
+    
+    if not args.evaluate:
+        runner.train()
+    else:
+        runner.eval()
+
 
 if __name__ == '__main__':
     # os.environ["CUDA_VISIBLE_DEVICES"] = "0"

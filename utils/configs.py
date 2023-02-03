@@ -47,7 +47,8 @@ def config(args):
     args.vgg_std = [0.229, 0.224, 0.225]
 
     # for the case only running evaluation
-    args.evaluate = False
+    #args.evaluate = True
+    args.evaluate = True
     args.evaluate_case = False
 
 

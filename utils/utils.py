@@ -631,6 +631,48 @@ class Runner:
         if not args.no_tb and args.proc_id == 0:
             writer.close()
 
+    def eval(self):
+        args = self.args
+        self.model = compile_model(self.grid_conf, self.data_aug_conf, 1, args.num_y_steps, args.num_category)
+
+        if args.sync_bn:
+            if args.proc_id == 0:
+                print("Convert model with Sync BatchNorm")
+            self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
+        if not args.no_cuda:
+            device = torch.device("cuda", args.local_rank)
+            self.model = self.model.to(device)
+
+        print(os.path.join(args.save_path, 'model_best*'))
+        best_file_name = glob.glob(os.path.join(args.save_path, 'model_best*'))[0]
+        print(best_file_name)
+        if os.path.isfile(best_file_name):
+            if args.proc_id == 0:
+                sys.stdout = Logger(os.path.join(args.save_path, 'Evaluate.txt'))
+                print("=> loading checkpoint '{}'".format(best_file_name))
+                checkpoint = torch.load(best_file_name)
+                self.model.load_state_dict(checkpoint['state_dict'])
+        else:
+            print("=> no checkpoint found at '{}'".format(best_file_name))
+        dist.barrier()
+        # DDP setting
+        if args.distributed:
+            self.model = DDP(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
+        loss_list, eval_stats = self.validate(self.model, vis=True)
+        
+        self.crit_string = "loss_gflat_multiclass"    
+        if args.proc_id == 0:
+            print("===> Average {}-loss on validation set is {:.8f}".format(self.crit_string, loss_list[0].avg))
+            print("===> Evaluation laneline F-measure: {:.8f}".format(eval_stats[0]))
+            print("===> Evaluation laneline Recall: {:.8f}".format(eval_stats[1]))
+            print("===> Evaluation laneline Precision: {:.8f}".format(eval_stats[2]))
+            print("===> Evaluation laneline Category Accuracy: {:.8f}".format(eval_stats[3]))
+            print("===> Evaluation laneline x error (close): {:.8f} m".format(eval_stats[4]))
+            print("===> Evaluation laneline x error (far): {:.8f} m".format(eval_stats[5]))
+            print("===> Evaluation laneline z error (close): {:.8f} m".format(eval_stats[6]))
+            print("===> Evaluation laneline z error (far): {:.8f} m".format(eval_stats[7]))
+
+
 
     def save_checkpoint(self, state, to_copy, epoch, save_path):
         filepath = os.path.join(save_path, 'checkpoint_model_epoch_{}.pth.tar'.format(epoch))
