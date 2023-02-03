@@ -491,11 +491,6 @@ class Runner:
             if args.distributed:
                 train_sampler.set_epoch(epoch)
 
-            #分割，没啥用
-            # if epoch > args.seg_start_epoch:
-            #     args.loss_seg_weight = 10.0
-
-
             # Define container objects to keep track of multiple losses/metrics
             batch_time = AverageMeter()
             data_time = AverageMeter()          # compute FPS
@@ -532,12 +527,6 @@ class Runner:
                 image = image.contiguous().float()
                 # # Run model
                 optimizer.zero_grad()
-
-                # preds = self.model(image,
-                #                    rots, trans,
-                #                    intrinsics
-                #                    )
-
 
                 preds = self.model(images,
                                    all_rots, all_trans,
@@ -685,7 +674,9 @@ class Runner:
             shutil.copyfile(filepath, os.path.join(save_path, 'model_best_epoch_{}.pth.tar'.format(epoch)))
             print("Best model copied")
         #add by wucunyin. just save best checkpoint.
-        os.remove(filepath)
+        if epoch > 1 :
+            pre_filepath = os.path.join(save_path, 'checkpoint_model_epoch_{}.pth.tar'.format(epoch - 1))
+            os.remove(pre_filepath)
 
     def validate(self, model, epoch=0, vis=False):
         args = self.args
