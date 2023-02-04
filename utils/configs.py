@@ -48,7 +48,6 @@ def config(args):
 
     # for the case only running evaluation
     #args.evaluate = True
-    args.evaluate = True
     args.evaluate_case = False
 
 

@@ -186,7 +186,10 @@ def define_args():
     parser.add_argument('--data_dir', type=str, help='The path of dataset json files (annotations)')
     parser.add_argument('--dataset_dir', type=str, help='The path of dataset image files (images)')
     parser.add_argument('--save_path', type=str, default='data_splits/', help='directory to save output')
-
+    
+    # General model settings
+    parser.add_argument('--camera_nums', type=int, default=5, help='numbers of cameras')
+    parser.add_argument('--evaluate', action='store_true', help='only perform evaluation')
 
 
     # DDP setting

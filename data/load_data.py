@@ -189,6 +189,7 @@ class lane_dataset(Dataset):
         self.num_category = args.num_category
 
         # dataset parameters
+        self.camera_nums = args.camera_nums
         self.h_org = args.org_h
         self.w_org = args.org_w
         self.h_crop = args.crop_y
@@ -663,15 +664,14 @@ class lane_dataset(Dataset):
         all_intrinsics.append(main_instrinsic)
         all_extrinsics.append(main_extrinsic)
 
-################################################################
-
         trans = main_extrinsic[0:3, 3]
         rots = main_extrinsic[0:3, 0:3]
         all_trans.append(trans)
         all_rots.append(rots)
-################################################################
 
-        for extend_num in range(1, 5):
+        # print("camera numbers: {:d}".format(self.camera_nums))
+
+        for extend_num in range(1, self.camera_nums):
             #extend label 
             extend_label_file = self.get_extend_file(self.extend_json_file_path ,extend_num, label_file)
 
@@ -694,13 +694,12 @@ class lane_dataset(Dataset):
                 extrinsic=torch.Tensor(extrinsic)
                 all_intrinsics.append(intrinsic)
                 all_extrinsics.append(extrinsic)  
-################################################################
                 #add by wucunyin.....
                 trans = extrinsic[0:3, 3]
                 rots = extrinsic[0:3, 0:3]
                 all_trans.append(trans)
                 all_rots.append(rots)
-################################################################
+
                 with open(extend_image_path, 'rb') as f:
                     img = (Image.open(f).convert('RGB'))
 
