@@ -243,15 +243,22 @@ class Runner:
             'dbound': args.dbound,
         }
         self.data_aug_conf = {
-            'resize_lim': (0.124, 0.130),
+            'resize_lim': (0.124, 0.135),
             #efficient 要求分辨率 必须32的倍数
-            #'final_dim': (128, 352),
+            # 'final_dim': (128, 352),
             # 'final_dim': (320, 480),#good
             'final_dim': (160, 256),#good
 
             'rot_lim': (-5.4, 5.4),
             'H': 1280, 'W': 1920,
             'rand_flip': True,
+
+            # src=(h:1280, w:1920)
+            # dest = src*rot_limt*(1 - bot_pct_lim)
+            # crop =(dest - final_dim)
+            # img =  (crop_w, crop_h, crop_w + final_dim_W, crop_h + final_dim_H)
+            # 最终的结果是，越大的裁剪的越多， 填补的也越多
+
             'bot_pct_lim': (0.0, 0.03),
             'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT',
                      'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT'],
