@@ -29,6 +29,17 @@ FILE_TAIL_TAG = '_with_camera_labels'
 IMAGE_PATH='/root/autodl-tmp/extend/images'
 LABEL_PATH='/root/autodl-tmp/extend/labels'
 
+
+
+#test data filter
+DATA_PATH='/root/autodl-tmp/openlane/lane3d_1000/test'
+VALIDATION_PATH='/root/autodl-tmp/openlane/lane3d_1000/validation'
+TEST_CASES=["curve_case" ,"extreme_weather_case" ,"intersection_case","merge_split_case","night_case","up_down_case"]
+
+
+
+
+
 def file_find(start, name):
     for relpath, dirs, files in os.walk(start):
         if name in files:
@@ -134,15 +145,50 @@ def image_json_extract(tfrecord_file):
                 with open(image_name, 'wb') as f:
                     f.write(img.image)
 
+
+def test_data_filter():
+    #1.iterate case   
+    for case in TEST_CASES:
+        case_path = os.path.join(DATA_PATH, case) # DATA_PATH+'/'+ case
+
+        #2. iterate segment
+        for segment in os.listdir(case_path):
+            validation_segment=dir_find(VALIDATION_PATH, segment)
+            if validation_segment  is not None:
+                #3. iterate file
+                for file in os.listdir(os.path.join(case_path, segment)):
+                    validation_file = file_find(validation_segment, file)
+                    if validation_file  is not None:
+                        pass
+                    else:
+                        print(os.path.join(case_path, segment, file))
+                        os.remove(os.path.join(case_path, segment, file))
+            else:
+                print(segment)
+                os.remove(os.path.join(case_path, segment))
+
+
+
+
+
 def main():
     parser = argparse.ArgumentParser(description='paper work')
     parser.add_argument('--tfrecord_dir', type=str, help='The path of tfrecord ')
+    parser.add_argument('--test_filter', action='store_true', help='test data filter')
+
     args = parser.parse_args() 
-    files_list=glob.glob(args.tfrecord_dir+"/*.tfrecord")
-    for file in files_list:
-        # print("==========")
-        # print(file)
-        image_json_extract(file)
+
+    if not args.test_filter:
+        files_list=glob.glob(args.tfrecord_dir+"/*.tfrecord")
+        for file in files_list:
+            # print("==========")
+            # print(file)
+            image_json_extract(file)
+        print("not ok ")
+    else:
+        print("filter")
+        test_data_filter()
+
 
 if __name__ == '__main__':
     main()
