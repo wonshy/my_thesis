@@ -194,7 +194,7 @@ def define_args():
 
     # DDP setting
     parser.add_argument('--distributed', action='store_true')
-    parser.add_argument("--local_rank", type=int)
+    parser.add_argument("--local-rank", type=int, default=0)
     parser.add_argument('--gpu', type=int, default = 0)
     parser.add_argument('--world_size', type=int, default = 1)
     
