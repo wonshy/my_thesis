@@ -156,11 +156,11 @@ def config(args):
     args.eta_min = 1e-5
 
     #        args.batch_size = 2
-    args.batch_size = 12
+    args.batch_size = 24
 
     args.bsz = args.batch_size
 
-    args.nworkers = 6
+    args.nworkers = 12
     #args.nworkers = 4
 
     args.lr = 1e-3
