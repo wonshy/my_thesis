@@ -774,6 +774,24 @@ class lane_dataset(Dataset):
                         cache_file = pickle.load(f)
                         return self.read_cache_file_beta(cache_file)
 
+
+
+        elif "test/" in json_file_path:
+            self.is_train = False
+            if "lane3d_1000" in json_file_path:
+                if os.path.isfile("./.cache/openlane_1000_preprocess_test_newanchor.pkl"):
+                    with open("./.cache/openlane_1000_preprocess_test_newanchor.pkl", "rb") as f:
+                        cache_file = pickle.load(f)
+                        return self.read_cache_file_beta(cache_file)
+            else:
+                if os.path.isfile("./.cache/openlane_preprocess_test_newanchor.pkl"):
+                    # TODO: need to change later
+                    with open("./.cache/openlane_preprocess_test_newanchor.pkl", "rb") as f:
+                        cache_file = pickle.load(f)
+                        return self.read_cache_file_beta(cache_file)
+
+
+
         # load image path, and lane pts
         label_image_path = []
         gt_laneline_pts_all = []

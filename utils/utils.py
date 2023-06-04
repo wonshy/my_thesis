@@ -224,7 +224,6 @@ def first_run(save_path):
 class Runner:
     def __init__(self, args):
         
-        
         self.args = args
         
         # Check GPU availability
@@ -234,7 +233,6 @@ class Runner:
             if torch.cuda.device_count() >= 1:
                 print("Let's use", torch.cuda.device_count(), "GPUs!")
                 torch.cuda.empty_cache()
-
 
         self.grid_conf = {
             'xbound': args.xbound,
@@ -281,16 +279,16 @@ class Runner:
         # Get Dataset
         if args.proc_id == 0:
             print("Loading Dataset ...")
-
-            
+                  
         # Get Dataset
         self.val_gt_file = os.path.join(args.save_path, 'test.json')
+        
         # TODO:GPU need?
-        # self.train_dataset, self.train_loader, self.train_sampler = self._get_train_dataset()
-        # # self.valid_dataset, self.valid_loader, self.valid_sampler = self._get_valid_dataset()
-
         self.train_dataset, self.train_loader, self.train_sampler = self._get_train_dataset()
         self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_valid_dataset()
+
+        self.test_case = 'curve_case'
+        self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_test_dataset(self.test_case)
 
         self.evaluator = LaneEval(args)
 
@@ -337,6 +335,22 @@ class Runner:
         valid_loader, valid_sampler = get_loader(valid_dataset, args)
 
         return valid_dataset, valid_loader, valid_sampler
+
+    def _get_test_dataset(self, test_case):
+
+        args = self.args
+
+        test_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'test/' + test_case +'/',
+                        args.extend_dataset_dir, args.extend_data_dir + 'test/'+ test_case + '/', args,self.data_aug_conf)
+
+        # assign std of test dataset to be consistent with train dataset
+        test_dataset.set_x_off_std(self.train_dataset._x_off_std)
+        test_dataset.set_z_std(self.train_dataset._z_std)
+        # test_dataset.normalize_lane_label()
+        test_loader, test_sampler = get_loader(test_dataset, args)
+
+        return test_dataset, test_loader, test_sampler
+
 
 
     def _get_model_ddp(self):
