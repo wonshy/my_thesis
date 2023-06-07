@@ -287,8 +287,9 @@ class Runner:
         self.train_dataset, self.train_loader, self.train_sampler = self._get_train_dataset()
         self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_valid_dataset()
 
-        self.test_case = 'curve_case'
-        self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_test_dataset(self.test_case)
+        # just for test
+        # self.test_case = 'curve_case'
+        # self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_test_dataset(self.test_case)
 
         self.evaluator = LaneEval(args)
 

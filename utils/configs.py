@@ -133,9 +133,18 @@ def config(args):
     # args.zbound = [-10.0, 10.0, 20.0]
     # args.dbound = [4.0, 45.0, 1.0]
 
+################### nornal 
+    # args.xbound = [-56.0, 56.0, 1.0]
+    # args.ybound = [-13.0, 13.0, 1.0]
 
-    args.xbound = [-56.0, 56.0, 1.0]
-    args.ybound = [-13.0, 13.0, 1.0]
+################### X2 
+    args.xbound = [-56.0, 56.0, 0.5]
+    args.ybound = [0.0, 52.0, 1.0]
+
+################### X4
+    # args.xbound = [-112.0, 112.0, 0.5]
+    # args.ybound = [0.0, 104.0, 1.0]
+
     args.zbound = [-10.0, 10.0, 20.0]
     args.dbound = [4.0, 45.0, 1.0]
 
@@ -156,11 +165,11 @@ def config(args):
     args.eta_min = 1e-5
 
     #        args.batch_size = 2
-    args.batch_size = 24
+    args.batch_size = 20
 
     args.bsz = args.batch_size
 
-    args.nworkers = 12
+    args.nworkers = 10
     #args.nworkers = 4
 
     args.lr = 1e-3

@@ -1,5 +1,7 @@
 import torch
+import torchvision
 import torch.nn as nn
+import numpy as np
 from efficientnet_pytorch import EfficientNet
 from data.tools import gen_dx_bx, cumsum_trick, QuickCumsum
 
@@ -96,33 +98,97 @@ class CamEncode(nn.Module):
         return x
 
 
-class BevEncode(nn.Module):
-    def __init__(self, inC):
-        super(BevEncode, self).__init__()
-        reduce_layers = []
-        extract_layers = []
+##### normal
 
-        dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(2,2), dilation=(2,2),stride=1) 
-        conv2d = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1),stride=1) 
-        reduce_layers += [dilation, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
-        extract_layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True)] 
+# class BevEncode(nn.Module):
+#     def __init__(self, inC):
+#         super(BevEncode, self).__init__()
+#         reduce_layers = []
+#         extract_layers = []
 
-        # layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
+#         dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(2,2), dilation=(2,2),stride=1) 
+#         conv2d = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1),stride=1) 
+#         reduce_layers += [dilation, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
+#         extract_layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True)] 
 
-        self.reduce_features = nn.Sequential(*reduce_layers)
-        self.extruct_features = nn.Sequential(*extract_layers)
+#         # layers += [conv2d, nn.BatchNorm2d(inC), nn.ReLU(inplace=True), nn.MaxPool2d(kernel_size=2, stride=2)] 
 
-
-        # self.dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1), stride=1)
-
-    def forward(self, x):
-        x = self.reduce_features(x)
-        # x = self.extruct_features(x)
-        # x = self.reduce_features(x)
+#         self.reduce_features = nn.Sequential(*reduce_layers)
+#         self.extruct_features = nn.Sequential(*extract_layers)
 
 
-        # x = self.extruct_features(x)
-        return x
+#         # self.dilation = nn.Conv2d(inC, inC, kernel_size=3, padding=(1,1), stride=1)
+
+#     def forward(self, x):
+#         x = self.reduce_features(x)
+#         # x = self.extruct_features(x)
+#         # x = self.reduce_features(x)
+
+
+#         # x = self.extruct_features(x)
+#         return x
+
+
+### deformable conv 
+class BevEncode(nn.Module): 
+    def __init__(self, inC): 
+        super(BevEncode, self).__init__() 
+        self.conv = nn.Conv2d(inC, inC, kernel_size=3, stride=2, padding=1) #原卷积 
+        self.conv_offset = nn.Conv2d(inC, 18, kernel_size=3, stride=2, padding=1) 
+        init_offset = torch.Tensor(np.zeros([18, inC, 3, 3])) 
+        self.conv_offset.weight = torch.nn.Parameter(init_offset) #初始化为0 
+        self.conv_mask = nn.Conv2d(inC, 9, kernel_size=3, stride=2, padding=1) 
+        init_mask = torch.Tensor(np.zeros([9, inC, 3, 3])+np.array([0.5])) 
+    def forward(self, x): 
+        offset = self.conv_offset(x) 
+        mask = torch.sigmoid(self.conv_mask(x)) #保证在0到1之间 
+        out = torchvision.ops.deform_conv2d(input=x, offset=offset, stride=(2,2), 
+                                            weight=self.conv.weight,  
+                                             mask=mask, padding=(1, 1)) 
+        return out
+
+
+# ############  Residual Network
+# class BevEncode(nn.Module):
+#     def __init__(self, inC, stride=2):
+#         super(BevEncode, self).__init__()
+#         self.conv1 = nn.Conv2d(inC, inC, kernel_size=3, stride=stride, padding=1, bias=False)
+#         self.bn1 = nn.BatchNorm2d(inC)
+#         self.relu = nn.ReLU(inplace=True)
+#         self.conv2 = nn.Conv2d(inC, inC, kernel_size=3, stride=1, padding=1, bias=False)
+#         self.bn2 = nn.BatchNorm2d(inC)
+        
+#         if stride != 1 or inC != inC:
+#             self.downsample = nn.Sequential(
+#                 nn.Conv2d(inC, inC, kernel_size=1, stride=stride, bias=False),
+#                 nn.BatchNorm2d(inC)
+#             )
+#         else:
+#             self.downsample = None
+    
+#     def forward(self, x):
+#         identity = x
+        
+#         out = self.conv1(x)
+#         out = self.bn1(out)
+#         out = self.relu(out)
+        
+#         out = self.conv2(out)
+#         out = self.bn2(out)
+        
+#         if self.downsample is not None:
+#             identity = self.downsample(x)
+        
+#         out += identity
+#         out = self.relu(out)
+        
+#         return out
+
+
+
+
+
+
 
 
 
@@ -343,7 +409,9 @@ class LiftSplatShoot(nn.Module):
     
     def forward(self, x, rots, trans, intrins, post_rots, post_trans):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
+        x = self.bevencode(x)
         # x = self.bevencode(x)
+
         x=self.head(x)
         return x
 
