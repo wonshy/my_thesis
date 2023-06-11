@@ -201,6 +201,74 @@ class BevEncode(nn.Module):
 #         return out
 
 
+class Deformable_conv(nn.Module): 
+    def __init__(self, inC, stride, offset_groups): 
+        super(Deformable_conv, self).__init__() 
+        self.stride = stride
+        if inC % offset_groups != 0:
+            raise ValueError('in_channels must be divisible by groups')
+        self.conv = nn.Conv2d(inC//offset_groups, inC , kernel_size=3, stride=self.stride,  padding=1) #原卷积 
+        print(self.conv.weight.shape)
+        self.conv_offset = nn.Conv2d(inC, offset_groups*2*3*3 , kernel_size=3, stride=self.stride,  padding=1) 
+        init_offset = torch.Tensor(np.zeros([offset_groups*2*3*3, inC,  3, 3])) 
+        self.conv_offset.weight = torch.nn.Parameter(init_offset) #初始化为0 
+        self.conv_mask = nn.Conv2d(inC, offset_groups*3*3 , kernel_size=3, stride=self.stride,  padding=1) 
+        init_mask = torch.Tensor(np.zeros([offset_groups*3*3, inC, 3, 3])+np.array([0.5])) 
+        self.conv_mask.weight = torch.nn.Parameter(init_mask) #初始化为0.5
+    def forward(self, x): 
+        offset = self.conv_offset(x) 
+        mask = torch.sigmoid(self.conv_mask(x)) #保证在0到1之间 
+        # input (Tensor[batch_size, in_channels, in_height, in_width]) – input tensor
+        # offset (Tensor[batch_size, 2 * offset_groups * kernel_height * kernel_width, out_height, out_width]) – offsets to be applied for each position in the convolution kernel.
+        # weight (Tensor[out_channels, in_channels // groups, kernel_height, kernel_width]) – convolution weights, split into groups of size (in_channels // groups)
+        # bias (Tensor[out_channels]) – optional bias of shape (out_channels,). Default: None
+        # stride (int or Tuple[int, int]) – distance between convolution centers. Default: 1
+        # padding (int or Tuple[int, int]) – height/width of padding of zeroes around each image. Default: 0
+        # dilation (int or Tuple[int, int]) – the spacing between kernel elements. Default: 1
+        # mask (Tensor[batch_size, offset_groups * kernel_height * kernel_width, out_height, out_width]) – masks to be applied for each position in the convolution kernel. Default: None
+        out = torchvision.ops.deform_conv2d(input=x, offset=offset, stride=self.stride,
+                                            weight=self.conv.weight,  
+                                             mask=mask, padding=(1, 1)) 
+        return out
+
+
+
+class ResidualBlock(nn.Module):
+    def __init__(self, inC, stride=1):
+        super(ResidualBlock, self).__init__()
+        in_channels=inC
+        out_channels=inC
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        
+        if stride != 1 or in_channels != out_channels:
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+        else:
+            self.downsample = None
+    
+    def forward(self, x):
+        identity = x
+        
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        
+        out = self.conv2(out)
+        out = self.bn2(out)
+        
+        if self.downsample is not None:
+            identity = self.downsample(x)
+        
+        out += identity
+        out = self.relu(out)
+        
+        return out
 
 
 
