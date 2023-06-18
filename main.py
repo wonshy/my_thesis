@@ -17,10 +17,11 @@ def main():
 
     runner = Runner(args)
     
-    if not args.evaluate:
-        runner.train()
-    else:
+    if args.evaluate or args.test_case != 'None':
         runner.eval()
+    else:
+        runner.train()
+
 
 
 if __name__ == '__main__':

@@ -190,7 +190,7 @@ def define_args():
     # General model settings
     parser.add_argument('--camera_nums', type=int, default=5, help='numbers of cameras')
     parser.add_argument('--evaluate', action='store_true', help='only perform evaluation')
-
+    parser.add_argument('--test_case', type=str, default='None', help='the evaluation of test case')
 
     # DDP setting
     parser.add_argument('--distributed', action='store_true')
@@ -285,11 +285,15 @@ class Runner:
         
         # TODO:GPU need?
         self.train_dataset, self.train_loader, self.train_sampler = self._get_train_dataset()
-        self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_valid_dataset()
 
-        # just for test
-        # self.test_case = 'curve_case'
-        # self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_test_dataset(self.test_case)
+        if args.test_case == 'None': 
+            self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_valid_dataset()
+        else:
+            print("=============================")
+            print(args.test_case)
+            print("=============================")
+            self.valid_dataset, self.valid_loader, self.valid_sampler  = self._get_test_dataset(args.test_case)
+
 
         self.evaluator = LaneEval(args)
 
@@ -342,7 +346,7 @@ class Runner:
         args = self.args
 
         test_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'test/' + test_case +'/',
-                        args.extend_dataset_dir, args.extend_data_dir + 'test/'+ test_case + '/', args,self.data_aug_conf)
+                        args.extend_dataset_dir, args.extend_data_dir + 'validation/', args,self.data_aug_conf)
 
         # assign std of test dataset to be consistent with train dataset
         test_dataset.set_x_off_std(self.train_dataset._x_off_std)
