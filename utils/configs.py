@@ -164,13 +164,15 @@ def config(args):
     args.T_max = 8
     args.eta_min = 1e-5
 
-    #        args.batch_size = 2
-    args.batch_size = 20
+    if args.evaluate_flops or args.evaluate_fps:
+        args.batch_size = 1
+    else:
+        args.batch_size = 20
+    
+    args.nworkers = args.batch_size
 
     args.bsz = args.batch_size
 
-    args.nworkers = 10
-    #args.nworkers = 4
 
     args.lr = 1e-3
     args.weight_decay = 1e-7

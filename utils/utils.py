@@ -4,6 +4,7 @@ import torch
 import time
 
 from nms import nms
+from thop import profile
 
 
 from tqdm import tqdm
@@ -190,6 +191,8 @@ def define_args():
     # General model settings
     parser.add_argument('--camera_nums', type=int, default=5, help='numbers of cameras')
     parser.add_argument('--evaluate', action='store_true', help='only perform evaluation')
+    parser.add_argument('--evaluate_flops', action='store_true', help='evluate model flops')
+    parser.add_argument('--evaluate_fps', action='store_true', help='evluate model fps')
     parser.add_argument('--test_case', type=str, default='None', help='the evaluation of test case')
 
     # DDP setting
@@ -733,6 +736,16 @@ class Runner:
         # Evaluate model
         model.eval()
 
+
+        res = []
+
+
+
+
+
+
+
+
         # Start validation loop
         with torch.no_grad():
 
@@ -754,15 +767,38 @@ class Runner:
 
                 image = image.contiguous().float()
 
-               # Inference model
-                # preds = self.model(image,
-                #                    rots, trans,
-                #                    intrinsics
-                #                    )
-                preds = self.model(images,
-                    all_rots, all_trans,
-                    all_intrinsics,all_post_rots,all_post_trans
-                    )
+                if args.evaluate_fps:
+                    torch.cuda.synchronize()
+                    start = time.time()
+
+                    preds = self.model(images,
+                        all_rots, all_trans,
+                        all_intrinsics,all_post_rots,all_post_trans
+                        )
+                    torch.cuda.synchronize()
+                    end = time.time()
+                    res.append(end-start)
+
+                else:
+                    preds = self.model(images,
+                        all_rots, all_trans,
+                        all_intrinsics,all_post_rots,all_post_trans
+                        )    
+
+
+                if args.evaluate_flops :
+
+                    flops, params =profile(self.model, inputs=(images,
+                        all_rots, all_trans,
+                        all_intrinsics,all_post_rots,all_post_trans ))
+
+                    print(f"Total FLOPs {flops}")
+                    print(f"Total params:{params}")
+
+                    exit() 
+
+
+
 
                 loss, loss_3d_dict = criterion(preds, gt_anchor)
                 # losses += loss
@@ -829,32 +865,38 @@ class Runner:
                     #     self.save_eval_result(args, img_path, pred_decoded_2d[j], pred_decoded_2d_cate[j], lanelines_pred, lanelines_prob)
 
 
-            eval_stats = self.evaluator.bench_one_submit_openlane_DDP(pred_lines_sub, gt_lines_sub, vis=False)
+        eval_stats = self.evaluator.bench_one_submit_openlane_DDP(pred_lines_sub, gt_lines_sub, vis=False)
 
 ################################################################################################
-            gather_output = [None for _ in range(args.world_size)]
-            # all_gather all eval_stats and calculate mean
-            dist.all_gather_object(gather_output, eval_stats)
-            dist.barrier()
-            r_lane = np.sum([eval_stats_sub[8] for eval_stats_sub in gather_output])
-            p_lane = np.sum([eval_stats_sub[9] for eval_stats_sub in gather_output])
-            c_lane = np.sum([eval_stats_sub[10] for eval_stats_sub in gather_output])
-            cnt_gt = np.sum([eval_stats_sub[11] for eval_stats_sub in gather_output])
-            cnt_pred = np.sum([eval_stats_sub[12] for eval_stats_sub in gather_output])
-            match_num = np.sum([eval_stats_sub[13] for eval_stats_sub in gather_output])
-            Recall = r_lane / (cnt_gt + 1e-6)
-            Precision = p_lane / (cnt_pred + 1e-6)
-            f1_score = 2 * Recall * Precision / (Recall + Precision + 1e-6)
-            category_accuracy = c_lane / (match_num + 1e-6)
+        gather_output = [None for _ in range(args.world_size)]
+        # all_gather all eval_stats and calculate mean
+        dist.all_gather_object(gather_output, eval_stats)
+        dist.barrier()
+        r_lane = np.sum([eval_stats_sub[8] for eval_stats_sub in gather_output])
+        p_lane = np.sum([eval_stats_sub[9] for eval_stats_sub in gather_output])
+        c_lane = np.sum([eval_stats_sub[10] for eval_stats_sub in gather_output])
+        cnt_gt = np.sum([eval_stats_sub[11] for eval_stats_sub in gather_output])
+        cnt_pred = np.sum([eval_stats_sub[12] for eval_stats_sub in gather_output])
+        match_num = np.sum([eval_stats_sub[13] for eval_stats_sub in gather_output])
+        Recall = r_lane / (cnt_gt + 1e-6)
+        Precision = p_lane / (cnt_pred + 1e-6)
+        f1_score = 2 * Recall * Precision / (Recall + Precision + 1e-6)
+        category_accuracy = c_lane / (match_num + 1e-6)
 
-            eval_stats[0] = f1_score
-            eval_stats[1] = Recall
-            eval_stats[2] = Precision
-            eval_stats[3] = category_accuracy
-            eval_stats[4] = np.sum([eval_stats_sub[4] for eval_stats_sub in gather_output]) / args.world_size
-            eval_stats[5] = np.sum([eval_stats_sub[5] for eval_stats_sub in gather_output]) / args.world_size
-            eval_stats[6] = np.sum([eval_stats_sub[6] for eval_stats_sub in gather_output]) / args.world_size
-            eval_stats[7] = np.sum([eval_stats_sub[7] for eval_stats_sub in gather_output]) / args.world_size
+        eval_stats[0] = f1_score
+        eval_stats[1] = Recall
+        eval_stats[2] = Precision
+        eval_stats[3] = category_accuracy
+        eval_stats[4] = np.sum([eval_stats_sub[4] for eval_stats_sub in gather_output]) / args.world_size
+        eval_stats[5] = np.sum([eval_stats_sub[5] for eval_stats_sub in gather_output]) / args.world_size
+        eval_stats[6] = np.sum([eval_stats_sub[6] for eval_stats_sub in gather_output]) / args.world_size
+        eval_stats[7] = np.sum([eval_stats_sub[7] for eval_stats_sub in gather_output]) / args.world_size
+        
+        if args.evaluate_fps :
+            time_sum = 0
+            for i in res:
+                time_sum += i
+            print("FPS: %f"%(1.0/(time_sum/len(res))))
 
-            return loss_list, eval_stats
+        return loss_list, eval_stats
 
