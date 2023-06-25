@@ -130,63 +130,6 @@ class CamEncode(nn.Module):
 
 
 
-### deformable conv 
-class BevEncode(nn.Module): 
-    def __init__(self, inC): 
-        super(BevEncode, self).__init__() 
-        self.conv = nn.Conv2d(inC, inC, kernel_size=3, stride=2, padding=1) #原卷积 
-        self.conv_offset = nn.Conv2d(inC, 18, kernel_size=3, stride=2, padding=1) 
-        init_offset = torch.Tensor(np.zeros([18, inC, 3, 3])) 
-        self.conv_offset.weight = torch.nn.Parameter(init_offset) #初始化为0 
-        self.conv_mask = nn.Conv2d(inC, 9, kernel_size=3, stride=2, padding=1) 
-        init_mask = torch.Tensor(np.zeros([9, inC, 3, 3])+np.array([0.5])) 
-    def forward(self, x): 
-        offset = self.conv_offset(x) 
-        mask = torch.sigmoid(self.conv_mask(x)) #保证在0到1之间 
-        out = torchvision.ops.deform_conv2d(input=x, offset=offset, stride=(2,2), 
-                                            weight=self.conv.weight,  
-                                             mask=mask, padding=(1, 1)) 
-        return out
-
-
-
-
-
-
-
-
-### deformable conv 
-# class BevEncode(nn.Module): 
-#     def __init__(self, inC): 
-#         super(BevEncode, self).__init__() 
-#         self.offset_group = 1
-#         if inC % self.offset_group != 0:
-#             raise ValueError('in_channels must be divisible by groups')
-#         self.conv = nn.Conv2d(inC//self.offset_group, inC , kernel_size=3, stride=(2,2),  padding=1) #原卷积 
-#         print(self.conv.weight.shape)
-#         self.conv_offset = nn.Conv2d(inC, self.offset_group*2*3*3 , kernel_size=3, stride=(2,2),  padding=1) 
-#         init_offset = torch.Tensor(np.zeros([self.offset_group*2*3*3, inC,  3, 3])) 
-#         self.conv_offset.weight = torch.nn.Parameter(init_offset) #初始化为0 
-#         self.conv_mask = nn.Conv2d(inC, self.offset_group*3*3 , kernel_size=3, stride=(2,2),  padding=1) 
-#         init_mask = torch.Tensor(np.zeros([self.offset_group*3*3, inC, 3, 3])+np.array([0.5])) 
-#         self.conv_mask.weight = torch.nn.Parameter(init_mask) #初始化为0.5
-#     def forward(self, x): 
-#         offset = self.conv_offset(x) 
-#         mask = torch.sigmoid(self.conv_mask(x)) #保证在0到1之间 
-#         # input (Tensor[batch_size, in_channels, in_height, in_width]) – input tensor
-#         # offset (Tensor[batch_size, 2 * offset_groups * kernel_height * kernel_width, out_height, out_width]) – offsets to be applied for each position in the convolution kernel.
-#         # weight (Tensor[out_channels, in_channels // groups, kernel_height, kernel_width]) – convolution weights, split into groups of size (in_channels // groups)
-#         # bias (Tensor[out_channels]) – optional bias of shape (out_channels,). Default: None
-#         # stride (int or Tuple[int, int]) – distance between convolution centers. Default: 1
-#         # padding (int or Tuple[int, int]) – height/width of padding of zeroes around each image. Default: 0
-#         # dilation (int or Tuple[int, int]) – the spacing between kernel elements. Default: 1
-#         # mask (Tensor[batch_size, offset_groups * kernel_height * kernel_width, out_height, out_width]) – masks to be applied for each position in the convolution kernel. Default: None
-#         out = torchvision.ops.deform_conv2d(input=x, offset=offset, stride=(2,2),
-#                                             weight=self.conv.weight,  
-#                                              mask=mask, padding=(1, 1)) 
-#         return out
-
-
 
 # ############  Residual Network
 # class BevEncode(nn.Module):
@@ -225,74 +168,78 @@ class BevEncode(nn.Module):
 #         return out
 
 
-# class Deformable_conv(nn.Module): 
-#     def __init__(self, inC, stride, offset_groups=1): 
-#         super(Deformable_conv, self).__init__() 
-#         self.stride = stride
-#         if inC % offset_groups != 0:
-#             raise ValueError('in_channels must be divisible by groups')
-#         self.conv = nn.Conv2d(inC//offset_groups, inC , kernel_size=3, stride=self.stride,  padding=1) #原卷积 
-#         print(self.conv.weight.shape)
-#         self.conv_offset = nn.Conv2d(inC, offset_groups*2*3*3 , kernel_size=3, stride=self.stride,  padding=1) 
-#         init_offset = torch.Tensor(np.zeros([offset_groups*2*3*3, inC,  3, 3])) 
-#         self.conv_offset.weight = torch.nn.Parameter(init_offset) #初始化为0 
-#         self.conv_mask = nn.Conv2d(inC, offset_groups*3*3 , kernel_size=3, stride=self.stride,  padding=1) 
-#         init_mask = torch.Tensor(np.zeros([offset_groups*3*3, inC, 3, 3])+np.array([0.5])) 
-#         self.conv_mask.weight = torch.nn.Parameter(init_mask) #初始化为0.5
-#     def forward(self, x): 
-#         offset = self.conv_offset(x) 
-#         mask = torch.sigmoid(self.conv_mask(x)) #保证在0到1之间 
-#         # input (Tensor[batch_size, in_channels, in_height, in_width]) – input tensor
-#         # offset (Tensor[batch_size, 2 * offset_groups * kernel_height * kernel_width, out_height, out_width]) – offsets to be applied for each position in the convolution kernel.
-#         # weight (Tensor[out_channels, in_channels // groups, kernel_height, kernel_width]) – convolution weights, split into groups of size (in_channels // groups)
-#         # bias (Tensor[out_channels]) – optional bias of shape (out_channels,). Default: None
-#         # stride (int or Tuple[int, int]) – distance between convolution centers. Default: 1
-#         # padding (int or Tuple[int, int]) – height/width of padding of zeroes around each image. Default: 0
-#         # dilation (int or Tuple[int, int]) – the spacing between kernel elements. Default: 1
-#         # mask (Tensor[batch_size, offset_groups * kernel_height * kernel_width, out_height, out_width]) – masks to be applied for each position in the convolution kernel. Default: None
-#         out = torchvision.ops.deform_conv2d(input=x, offset=offset, stride=self.stride,
-#                                             weight=self.conv.weight,  
-#                                              mask=mask, padding=(1, 1)) 
-#         return out
+class Deformable_conv(nn.Module): 
+    def __init__(self, inC, stride=(2,1), padding=(1,1), kernel_size=3, offset_groups=1): 
+        super(Deformable_conv, self).__init__() 
+        self.stride = stride
+        self.padding = padding
+        self.kernel_size=kernel_size
+        if inC % offset_groups != 0:
+            raise ValueError('in_channels must be divisible by groups')
+        self.conv = nn.Conv2d(inC//offset_groups, inC , kernel_size=self.kernel_size, stride=self.stride,  padding=self.padding) #原卷积 
+        print(self.conv.weight.shape)
+        self.conv_offset = nn.Conv2d(inC, offset_groups*2*self.kernel_size*self.kernel_size , kernel_size=self.kernel_size, stride=self.stride,  padding=self.padding) 
+        init_offset = torch.Tensor(np.zeros([offset_groups*2*self.kernel_size*self.kernel_size, inC,  self.kernel_size, self.kernel_size])) 
+        self.conv_offset.weight = torch.nn.Parameter(init_offset) #初始化为0 
+        self.conv_mask = nn.Conv2d(inC, offset_groups*self.kernel_size*self.kernel_size , kernel_size=self.kernel_size, stride=self.stride,  padding=self.padding) 
+        init_mask = torch.Tensor(np.zeros([offset_groups*self.kernel_size*self.kernel_size, inC, self.kernel_size, self.kernel_size])+np.array([0.5])) 
+        self.conv_mask.weight = torch.nn.Parameter(init_mask) #初始化为0.5
+    def forward(self, x): 
+        offset = self.conv_offset(x) 
+        mask = torch.sigmoid(self.conv_mask(x)) #保证在0到1之间 
+        # input (Tensor[batch_size, in_channels, in_height, in_width]) – input tensor
+        # offset (Tensor[batch_size, 2 * offset_groups * kernel_height * kernel_width, out_height, out_width]) – offsets to be applied for each position in the convolution kernel.
+        # weight (Tensor[out_channels, in_channels // groups, kernel_height, kernel_width]) – convolution weights, split into groups of size (in_channels // groups)
+        # bias (Tensor[out_channels]) – optional bias of shape (out_channels,). Default: None
+        # stride (int or Tuple[int, int]) – distance between convolution centers. Default: 1
+        # padding (int or Tuple[int, int]) – height/width of padding of zeroes around each image. Default: 0
+        # dilation (int or Tuple[int, int]) – the spacing between kernel elements. Default: 1
+        # mask (Tensor[batch_size, offset_groups * kernel_height * kernel_width, out_height, out_width]) – masks to be applied for each position in the convolution kernel. Default: None
+        out = torchvision.ops.deform_conv2d(input=x, offset=offset, stride=self.stride,
+                                            weight=self.conv.weight,  
+                                             mask=mask, padding=self.padding) 
+
+        # print(out.shape)
+        return out
 
 
 
-# class ResidualBlock(nn.Module):
-#     def __init__(self, inC, stride=1):
-#         super(ResidualBlock, self).__init__()
-#         in_channels=inC
-#         out_channels=inC
-#         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
-#         self.bn1 = nn.BatchNorm2d(out_channels)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
-#         self.bn2 = nn.BatchNorm2d(out_channels)
+class ResidualBlock(nn.Module):
+    def __init__(self, inC, stride=1):
+        super(ResidualBlock, self).__init__()
+        in_channels=inC
+        out_channels=inC
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
         
-#         if stride != 1 or in_channels != out_channels:
-#             self.downsample = nn.Sequential(
-#                 nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
-#                 nn.BatchNorm2d(out_channels)
-#             )
-#         else:
-#             self.downsample = None
+        if stride != 1 or in_channels != out_channels:
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+        else:
+            self.downsample = None
     
-#     def forward(self, x):
-#         identity = x
+    def forward(self, x):
+        identity = x
         
-#         out = self.conv1(x)
-#         out = self.bn1(out)
-#         out = self.relu(out)
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
         
-#         out = self.conv2(out)
-#         out = self.bn2(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
         
-#         if self.downsample is not None:
-#             identity = self.downsample(x)
+        if self.downsample is not None:
+            identity = self.downsample(x)
         
-#         out += identity
-#         out = self.relu(out)
+        out += identity
+        out = self.relu(out)
         
-#         return out
+        return out
 
 
 
@@ -377,7 +324,13 @@ class LiftSplatShoot(nn.Module):
         self.frustum = self.create_frustum()
         self.D, _, _, _ = self.frustum.shape
         self.camencode = CamEncode(self.D, self.camC, self.downsample)
-        self.bevencode = BevEncode(inC=self.camC)
+        # self.bevencode = BevEncode(inC=self.camC)
+
+        self.bevencode = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
+        self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
+        self.dfc3_2 = Deformable_conv(inC=self.camC)
+
+
         self.head = LanePredictionHead(self.camC, num_lane_type, num_y_steps, num_category)
         # toggle using QuickCumsum vs. autograd
         self.use_quickcumsum = True
@@ -517,9 +470,10 @@ class LiftSplatShoot(nn.Module):
     
     def forward(self, x, rots, trans, intrins, post_rots, post_trans):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
-        x = self.bevencode(x)
         # x = self.bevencode(x)
-
+        x = self.bevencode(x)
+        x = self.dfc3_2(x)
+        x = self.dfc5_2(x)
         x=self.head(x)
         return x
 
