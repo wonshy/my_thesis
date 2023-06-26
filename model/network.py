@@ -40,6 +40,8 @@ class CamEncode(nn.Module):
 
 
         self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
+        # self.trunk = EfficientNet.from_pretrained("efficientnet-b6")
+
         self.up1 = Up(320+112, 512) #b0 x16
         # self.up1 = Up(320+24, 512, scale_factor=32/self.downsample) #b0 x4
         
