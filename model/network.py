@@ -328,9 +328,10 @@ class LiftSplatShoot(nn.Module):
         self.camencode = CamEncode(self.D, self.camC, self.downsample)
         # self.bevencode = BevEncode(inC=self.camC)
 
-        self.bevencode = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
-        self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
+        #self.bevencode = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
+        # self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
         self.dfc3_2 = Deformable_conv(inC=self.camC)
+        # self.dfc = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(1,1),kernel_size=3)
 
 
         self.head = LanePredictionHead(self.camC, num_lane_type, num_y_steps, num_category)
@@ -473,9 +474,13 @@ class LiftSplatShoot(nn.Module):
     def forward(self, x, rots, trans, intrins, post_rots, post_trans):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
         # x = self.bevencode(x)
-        x = self.bevencode(x)
+        #x = self.bevencode(x)
         x = self.dfc3_2(x)
-        x = self.dfc5_2(x)
+        x = self.dfc3_2(x)
+        x = self.dfc3_2(x)
+
+        # x = self.dfc(x)
+        # x = self.dfc5_2(x)
         x=self.head(x)
         return x
 

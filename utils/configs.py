@@ -151,13 +151,20 @@ def config(args):
 
 
 
-    args.xbound = [-28.0, 28.0, 0.25]#56
+    # args.xbound = [-28.0, 28.0, 0.5]#56
+    # args.ybound = [0.0, 104.0, 1] #52   104
+
+    # args.zbound = [-10.0, 10.0, 20.0]
+    # args.dbound = [4.0, 104.0, 1]
+
+############################################################################
+
+    args.xbound = [-14.0, 14.0, 0.25]#56
     args.ybound = [0.0, 104.0, 0.5] #52   104
 
     args.zbound = [-10.0, 10.0, 20.0]
-    args.dbound = [4.0, 104.0, 0.5]
-
-
+    args.dbound = [4.0, 104.0, 1]
+############################################################################
 
 
 
@@ -178,7 +185,7 @@ def config(args):
     if args.evaluate_flops or args.evaluate_fps:
         args.batch_size = 1
     else:
-        args.batch_size = 16
+        args.batch_size = 20 
     
     args.nworkers = args.batch_size
 
