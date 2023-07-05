@@ -16,6 +16,7 @@ from utils.eval_lane import *
 from utils import *
 import shutil
 
+import os.path as ops
 
 # ddp related
 import torch.distributed as dist
@@ -193,6 +194,8 @@ def define_args():
     parser.add_argument('--evaluate', action='store_true', help='only perform evaluation')
     parser.add_argument('--evaluate_flops', action='store_true', help='evluate model flops')
     parser.add_argument('--evaluate_fps', action='store_true', help='evluate model fps')
+    parser.add_argument('--save_prob', action='store_true', help='save predictiv value')
+
     parser.add_argument('--test_case', type=str, default='None', help='the evaluation of test case')
 
     # DDP setting
@@ -717,6 +720,34 @@ class Runner:
             pre_filepath = os.path.join(save_path, 'checkpoint_model_epoch_{}.pth.tar'.format(epoch - 1))
             os.remove(pre_filepath)
 
+    def save_eval_result(self, args, img_path, lanelines_pred, lanelines_prob):
+
+        # 3d eval result
+        result = {}
+        result_dir = os.path.join(args.save_path, 'result_3d/')
+        mkdir_if_missing(result_dir)
+        mkdir_if_missing(os.path.join(result_dir, 'validation/'))
+        mkdir_if_missing(os.path.join(result_dir, 'training/'))
+        file_path_splited = img_path.split('/')
+        mkdir_if_missing(os.path.join(result_dir, 'validation/'+file_path_splited[1]))  # segment
+        result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'.json')
+
+        # write result
+        result['file_path'] = img_path
+        # write lane result
+        lane_lines = []
+        # "xyz":             <float> [3, n] -- x,y,z coordinates of sample points in camera coordinate
+        # "category":        <int> -- lane shape category, 1 - num_category
+        for k in range(len(lanelines_pred)):
+            if np.max(lanelines_prob[k]) < 0.5:
+                continue
+            lane_lines.append({'xyz': lanelines_pred[k],
+                               'category': int(np.argmax(lanelines_prob[k]))})
+        result['lane_lines'] = lane_lines
+
+        with open(result_file_path, 'w') as result_file:
+            json.dump(result, result_file)
+
     def validate(self, model, epoch=0, vis=False):
         args = self.args
         loader = self.valid_loader
@@ -866,10 +897,10 @@ class Runner:
                     #json形式的数值保存到pred_lines_sub中。
                     pred_lines_sub.append(copy.deepcopy(json_line))
 
-                    # # save 2d/3d eval results
-                    # if args.evaluate:
-                    #     img_path = json_line["file_path"]
-                    #     self.save_eval_result(args, img_path, pred_decoded_2d[j], pred_decoded_2d_cate[j], lanelines_pred, lanelines_prob)
+                    # save 2d/3d eval results
+                    if args.evaluate and args.save_prob:
+                        img_path = json_line["file_path"]
+                        self.save_eval_result(args, img_path, lanelines_pred, lanelines_prob)
 
 
         eval_stats = self.evaluator.bench_one_submit_openlane_DDP(pred_lines_sub, gt_lines_sub, vis=False)
@@ -906,4 +937,3 @@ class Runner:
             print("FPS: %f"%(1.0/(time_sum/len(res))))
 
         return loss_list, eval_stats
-

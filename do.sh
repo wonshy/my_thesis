@@ -20,7 +20,7 @@
 
 
 
-#python -m torch.distributed.launch  --nproc_per_node  6  main.py --camera_nums=5 
+#python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 
 
 
 #echo "========================================5-camera evaluate==========================================================="
@@ -31,8 +31,8 @@
 #    python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --test_case $element --evaluate
 #done
 #
-python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --evaluate --evaluate_fps
-#python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --evaluate --evaluate_flops
+python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --evaluate --evaluate_fps --save_prob
+# python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --evaluate --evaluate_flops
 
 
 
