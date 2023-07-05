@@ -17,6 +17,15 @@ from data.tools import SolveMinCostFlow
 from data.tools import *
 
 
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
+
+import os.path as ops
+
+
+
+
 class LaneEval(object):
     def __init__(self, args):
         self.dataset_name = args.dataset_name
@@ -30,6 +39,73 @@ class LaneEval(object):
         self.dist_th = 1.5
         self.ratio_th = 0.75
         self.close_range = 40
+
+        self.save_compare_line = args.save_lines
+
+
+
+    def mkdir_if_missing(self, directory):
+        if not os.path.exists(directory):
+            try:
+                os.makedirs(directory)
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
+
+
+    def gen_line(self, raw_file, gt_lanes, pred_lanes):
+           # 创建三维图形对象
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+
+        gt_flag=0
+        # 绘制gt的线
+        for i in range(len(gt_lanes)):
+
+            gt_lanes_p=np.array(gt_lanes[i])
+
+            if gt_flag == 0 :
+
+                # print(len(gt_lanes_p[:,0]))
+                # print(len(gt_lanes_p[:,1]))
+                ax.plot3D(gt_lanes_p[:,0], self.y_samples, gt_lanes_p[:,1], 'green', label='gt')
+                gt_flag=1
+            else:
+                ax.plot3D(gt_lanes_p[:,0], self.y_samples, gt_lanes_p[:,1], 'green')
+
+        prob_flag=0
+        # 绘制prob的线
+        for i in range(len(pred_lanes)):
+            prob_lanes_p = np.array(pred_lanes[i])
+            if prob_flag == 0 :
+                prob_flag = 1
+                ax.plot3D(prob_lanes_p[:,0], self.y_samples, prob_lanes_p[:,1], 'red', label='gt')
+            else:
+                ax.plot3D(prob_lanes_p[:,0], self.y_samples, prob_lanes_p[:,1], 'red')
+
+
+        # 设置图例
+        ax.legend()
+
+        # 设置图形参数
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+
+        # 显示图形
+        #plt.show()
+
+        # print(raw_file)
+        result_dir = os.path.join('/root/', 'result_3d/')
+        self.mkdir_if_missing(result_dir)
+        self.mkdir_if_missing(os.path.join(result_dir, 'validation/'))
+        self.mkdir_if_missing(os.path.join(result_dir, 'training/'))
+        file_path_splited = raw_file.split('/')
+        self.mkdir_if_missing(os.path.join(result_dir, 'validation/'+file_path_splited[1]))  # segment
+        result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'.png')
+        plt.savefig(result_file_path)
+
+
 
     def bench(self, pred_lanes, pred_category, gt_lanes, gt_visibility, gt_category, raw_file, gt_cam_height,
               gt_cam_pitch, vis, P_g2im=None):
@@ -125,6 +201,20 @@ class LaneEval(object):
         z_dist_mat_far = np.zeros((cnt_gt, cnt_pred), dtype=float)
         z_dist_mat_far.fill(1000.)
 
+
+        # print("==============gt_lanes===============")
+        # print(self.y_samples)
+        # if len(gt_lanes) > 0:
+        #     print(len(gt_lanes[0]))
+
+        # print(gt_lanes)
+        # print("==============pred_lanes===============")
+        # print(pred_lanes)
+        # input("continue:")
+
+
+
+
         # compute curve to curve distance
         for i in range(cnt_gt):
             for j in range(cnt_pred):
@@ -200,6 +290,11 @@ class LaneEval(object):
         # # Visulization to be added
         # if vis:
         #     pass
+
+
+        if self.save_compare_line: 
+            self.gen_line(raw_file, gt_lanes, pred_lanes)
+
         return r_lane, p_lane, c_lane, cnt_gt, cnt_pred, match_num, x_error_close, x_error_far, z_error_close, z_error_far
 
     # compare predicted set and ground-truth set using a fixed lane probability threshold

@@ -195,6 +195,7 @@ def define_args():
     parser.add_argument('--evaluate_flops', action='store_true', help='evluate model flops')
     parser.add_argument('--evaluate_fps', action='store_true', help='evluate model fps')
     parser.add_argument('--save_prob', action='store_true', help='save predictiv value')
+    parser.add_argument('--save_lines', action='store_true', help='save line png')
 
     parser.add_argument('--test_case', type=str, default='None', help='the evaluation of test case')
 
