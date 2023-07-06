@@ -79,7 +79,7 @@ class LaneEval(object):
             prob_lanes_p = np.array(pred_lanes[i])
             if prob_flag == 0 :
                 prob_flag = 1
-                ax.plot3D(prob_lanes_p[:,0], self.y_samples, prob_lanes_p[:,1], 'red', label='gt')
+                ax.plot3D(prob_lanes_p[:,0], self.y_samples, prob_lanes_p[:,1], 'red', label='pred')
             else:
                 ax.plot3D(prob_lanes_p[:,0], self.y_samples, prob_lanes_p[:,1], 'red')
 
