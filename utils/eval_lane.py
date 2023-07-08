@@ -23,6 +23,7 @@ from mpl_toolkits import mplot3d
 
 import os.path as ops
 
+import cv2
 
 
 
@@ -53,7 +54,7 @@ class LaneEval(object):
                     raise
 
 
-    def gen_line(self, raw_file, gt_lanes, pred_lanes):
+    def gen_line(self, raw_file, gt_lanes, pred_lanes, P_g2im):
            # 创建三维图形对象
         fig = plt.figure()
         ax = plt.axes(projection='3d')
@@ -104,6 +105,30 @@ class LaneEval(object):
         self.mkdir_if_missing(os.path.join(result_dir, 'validation/'+file_path_splited[1]))  # segment
         result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'.png')
         plt.savefig(result_file_path)
+
+
+
+        
+        image_dir = os.path.join(self.dataset_dir , raw_file)
+        # 读取图片
+        image = cv2.imread(image_dir) 
+
+        for i in range(len(gt_lanes)):
+            gt_lane=np.array(gt_lanes[i])
+            # 车道线点列表
+            x_vals, y_vals = projective_transformation(P_g2im, gt_lane[:,0], self.y_samples, gt_lane[:,1])
+
+            # 绘制车道线
+            line_color = (0, 0, 255)  # 线条颜色 (B, G, R)
+            line_thickness = 2  # 线条粗细
+
+            for k in range(1, gt_lane.shape[0]):
+                image=cv2.line(image, (x_vals[k - 1].astype(int32), y_vals[k - 1].astype(int32)),
+                        (x_vals[k].astype(int32), y_vals[k].astype(int32)), line_color, line_thickness)
+                
+        # 保存编辑后的图像
+        result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'_project.jpg')
+        cv2.imwrite(result_file_path, image)  
 
 
 
@@ -293,7 +318,7 @@ class LaneEval(object):
 
 
         if self.save_compare_line: 
-            self.gen_line(raw_file, gt_lanes, pred_lanes)
+            self.gen_line(raw_file, gt_lanes, pred_lanes, P_g2im)
 
         return r_lane, p_lane, c_lane, cnt_gt, cnt_pred, match_num, x_error_close, x_error_far, z_error_close, z_error_far
 

@@ -49,7 +49,7 @@ def prune_3d_lane_by_visibility(lane_3d, visibility):
     lane_3d = lane_3d[visibility > 0, ...]
     return lane_3d
 
-
+#我们不使用相机投影模型，而是使用单应性度量将道路平面上的 3d 点投影到图像平面。 在这种假设下，尺寸 2（道路的高度）将被省略。
 def homograpthy_g2im_extrinsic(E, K):
     """E: extrinsic matrix, 4*4"""
     E_inv = np.linalg.inv(E)[0:3, :]
@@ -399,9 +399,21 @@ class lane_dataset(Dataset):
 
         cam_K = cam_intrinsics
         cam_E = cam_extrinsics
-        P_g2im = projection_g2im_extrinsic(cam_E, cam_K)
-        H_g2im = homograpthy_g2im_extrinsic(cam_E, cam_K)
+        P_g2im = projection_g2im_extrinsic(cam_E, cam_K) # ground truth Project to top view Matrix 
+        H_g2im = homograpthy_g2im_extrinsic(cam_E, cam_K) # project the 3d point on the road plane to the image plane
         H_im2g = np.linalg.inv(H_g2im)
+        
+        # 通常情况下，地面坐标系是一个三维坐标系，用于描述物体在三维空间中的位置。
+        # 然而，在某些应用中，我们可能更关注物体在地面平面上的位置，例如道路上的车道线或车辆的位置。
+        # 因此，我们需要将物体的三维坐标转换到地面平面上的二维坐标。
+        # 变换矩阵 P_g2gflat 是由代码中的投影矩阵 P_g2im 和  从图像坐标系到地面坐标系的单应矩阵 H_im2g 相乘得到的。
+
+        # 这个变换矩阵可以将从地面坐标系表示的点或物体的坐标投影到地面平面上，得到地面平面上的坐标。
+        
+        # 换句话说，通过应用变换矩阵 P_g2gflat，我们可以将车道线或其他物体在地面坐标系中的三维坐标转换为在地面平面上的二维坐标。
+        # 这可以方便地对地面上的物体进行分析、测量或其他操作，而不需要考虑物体在垂直方向上的位置。
+
+
         P_g2gflat = np.matmul(H_im2g, P_g2im)
 
         gt_lanes = gt_lane_pts
