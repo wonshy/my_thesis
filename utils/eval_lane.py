@@ -113,7 +113,8 @@ class LaneEval(object):
         file_path_splited = raw_file.split('/')
         self.mkdir_if_missing(os.path.join(result_dir, 'validation/'+file_path_splited[1]))  # segment
         result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'.png')
-        plt.savefig(result_file_path)
+        # plt.savefig(result_file_path)
+        plt.savefig("feature_map.png")
 
 
 
@@ -132,12 +133,13 @@ class LaneEval(object):
             x_vals, y_vals = projective_transformation(P_g2im, gt_lane[:,0], gt_lane[:,2], gt_lane[:,1])
 
 
-            #k = x_vals[x_vals < 0]
-            #b = y_vals[y_vals < 0] 
-            #print("======================================")
-            #print(k)
-            #print(b)
-            #print("======================================")
+
+            # k = x_vals[x_vals < 0]
+            # b = y_vals[y_vals < 0] 
+            # print("======================================")
+            # print(k)
+            # print(b)
+            # print("======================================")
 
             # 绘制车道线
             line_color = (0, 0, 255)  # 线条颜色 (B, G, R)
@@ -212,19 +214,28 @@ class LaneEval(object):
         z_error_close = []
         z_error_far = []
 
-
         # only keep the visible portion
         gt_lanes = [prune_3d_lane_by_visibility(np.array(gt_lane), np.array(gt_visibility[k])) for k, gt_lane in
                     enumerate(gt_lanes)]
         gt_category = [gt_category[k] for k, lane in enumerate(gt_lanes) if lane.shape[0] > 1]
         gt_lanes = [lane for lane in gt_lanes if lane.shape[0] > 1]
 
+        # # only consider those pred lanes overlapping with sampling range
+        pred_category = [pred_category[k] for k, lane in enumerate(pred_lanes)
+                        if np.array(lane)[0, 1] < self.y_samples[-1] and np.array(lane)[-1, 1] > self.y_samples[0]]
+        pred_lanes = [lane for lane in pred_lanes if np.array(lane)[0, 1] < self.y_samples[-1] and np.array(lane)[-1, 1] > self.y_samples[0]]
+
+        pred_lanes = [prune_3d_lane_by_range(np.array(lane), self.x_min, self.x_max) for lane in pred_lanes]
+
+        pred_category = [pred_category[k] for k, lane in enumerate(pred_lanes) if np.array(lane).shape[0] > 1]
+        pred_lanes = [lane for lane in pred_lanes if np.array(lane).shape[0] > 1]
+
         # only consider those gt lanes overlapping with sampling range
         gt_category = [gt_category[k] for k, lane in enumerate(gt_lanes)
-                if lane[0, 1] < self.y_samples[-1] and lane[-1, 1] > self.y_samples[0]]
+                        if lane[0, 1] < self.y_samples[-1] and lane[-1, 1] > self.y_samples[0]]
         gt_lanes = [lane for lane in gt_lanes if lane[0, 1] < self.y_samples[-1] and lane[-1, 1] > self.y_samples[0]]
 
-        gt_lanes = [prune_3d_lane_by_range(np.array(lane), 3 * self.x_min, 3 * self.x_max) for lane in gt_lanes]
+        gt_lanes = [prune_3d_lane_by_range(np.array(lane), self.x_min, self.x_max) for lane in gt_lanes]
 
         gt_category = [gt_category[k] for k, lane in enumerate(gt_lanes) if lane.shape[0] > 1]
         gt_lanes = [lane for lane in gt_lanes if lane.shape[0] > 1]
@@ -239,13 +250,10 @@ class LaneEval(object):
         for i in range(cnt_gt):
             min_y = np.min(np.array(gt_lanes[i])[:, 1])
             max_y = np.max(np.array(gt_lanes[i])[:, 1])
-            x_values, z_values, visibility_vec = resample_laneline_in_y(np.array(gt_lanes[i]), self.y_samples,
-                                                                        out_vis=True)
+            x_values, z_values, visibility_vec = resample_laneline_in_y(np.array(gt_lanes[i]), self.y_samples, out_vis=True)
             gt_lanes[i] = np.vstack([x_values, z_values]).T
             gt_visibility_mat[i, :] = np.logical_and(x_values >= self.x_min, np.logical_and(x_values <= self.x_max,
-                                                                                            np.logical_and(
-                                                                                                self.y_samples >= min_y,
-                                                                                                self.y_samples <= max_y)))
+                                                     np.logical_and(self.y_samples >= min_y, self.y_samples <= max_y)))
             gt_visibility_mat[i, :] = np.logical_and(gt_visibility_mat[i, :], visibility_vec)
 
         for i in range(cnt_pred):
@@ -254,15 +262,23 @@ class LaneEval(object):
             # pred_lane = prune_3d_lane_by_range(np.array(pred_lanes[i]), self.x_min, self.x_max)
             min_y = np.min(np.array(pred_lanes[i])[:, 1])
             max_y = np.max(np.array(pred_lanes[i])[:, 1])
-            x_values, z_values, visibility_vec = resample_laneline_in_y(np.array(pred_lanes[i]), self.y_samples,
-                                                                        out_vis=True)
+            x_values, z_values, visibility_vec = resample_laneline_in_y(np.array(pred_lanes[i]), self.y_samples, out_vis=True)
             pred_lanes[i] = np.vstack([x_values, z_values]).T
             pred_visibility_mat[i, :] = np.logical_and(x_values >= self.x_min, np.logical_and(x_values <= self.x_max,
-                                                                                              np.logical_and(
-                                                                                                  self.y_samples >= min_y,
-                                                                                                  self.y_samples <= max_y)))
+                                                       np.logical_and(self.y_samples >= min_y, self.y_samples <= max_y)))
             pred_visibility_mat[i, :] = np.logical_and(pred_visibility_mat[i, :], visibility_vec)
             # pred_visibility_mat[i, :] = np.logical_and(x_values >= self.x_min, x_values <= self.x_max)
+
+        # at least two-points for both gt and pred
+        gt_lanes = [gt_lanes[k] for k in range(cnt_gt) if np.sum(gt_visibility_mat[k, :]) > 1]
+        gt_category = [gt_category[k] for k in range(cnt_gt) if np.sum(gt_visibility_mat[k, :]) > 1]
+        gt_visibility_mat = gt_visibility_mat[np.sum(gt_visibility_mat, axis=-1) > 1, :]
+        cnt_gt = len(gt_lanes)
+
+        pred_lanes = [pred_lanes[k] for k in range(cnt_pred) if np.sum(pred_visibility_mat[k, :]) > 1]
+        pred_category = [pred_category[k] for k in range(cnt_pred) if np.sum(pred_visibility_mat[k, :]) > 1]
+        pred_visibility_mat = pred_visibility_mat[np.sum(pred_visibility_mat, axis=-1) > 1, :]
+        cnt_pred = len(pred_lanes)
 
         adj_mat = np.zeros((cnt_gt, cnt_pred), dtype=int)
         cost_mat = np.zeros((cnt_gt, cnt_pred), dtype=int)
@@ -277,41 +293,34 @@ class LaneEval(object):
         z_dist_mat_far = np.zeros((cnt_gt, cnt_pred), dtype=float)
         z_dist_mat_far.fill(1000.)
 
-
-        # print("==============gt_lanes===============")
-        # print(self.y_samples)
-        # if len(gt_lanes) > 0:
-        #     print(len(gt_lanes[0]))
-
-        # print(gt_lanes)
-        # print("==============pred_lanes===============")
-        # print(pred_lanes)
-        # input("continue:")
-
-
-
-
         # compute curve to curve distance
         for i in range(cnt_gt):
             for j in range(cnt_pred):
                 x_dist = np.abs(gt_lanes[i][:, 0] - pred_lanes[j][:, 0])
                 z_dist = np.abs(gt_lanes[i][:, 1] - pred_lanes[j][:, 1])
-                euclidean_dist = np.sqrt(x_dist ** 2 + z_dist ** 2)
 
                 # apply visibility to penalize different partial matching accordingly
-                euclidean_dist[
-                    np.logical_or(gt_visibility_mat[i, :] < 0.5, pred_visibility_mat[j, :] < 0.5)] = self.dist_th
+                both_visible_indices = np.logical_and(gt_visibility_mat[i, :] >= 0.5, pred_visibility_mat[j, :] >= 0.5)
+                both_invisible_indices = np.logical_and(gt_visibility_mat[i, :] < 0.5, pred_visibility_mat[j, :] < 0.5)
+                other_indices = np.logical_not(np.logical_or(both_visible_indices, both_invisible_indices))
+                
+                euclidean_dist = np.sqrt(x_dist ** 2 + z_dist ** 2)
+                euclidean_dist[both_invisible_indices] = 0
+                euclidean_dist[other_indices] = self.dist_th
 
                 # if np.average(euclidean_dist) < 2*self.dist_th: # don't prune here to encourage finding perfect match
-                num_match_mat[i, j] = np.sum(euclidean_dist < self.dist_th)
+                num_match_mat[i, j] = np.sum(euclidean_dist < self.dist_th) - np.sum(both_invisible_indices)
                 adj_mat[i, j] = 1
                 # ATTENTION: use the sum as int type to meet the requirements of min cost flow optimization (int type)
                 # using num_match_mat as cost does not work?
-                cost_mat[i, j] = np.sum(euclidean_dist).astype(int)
-                # cost_mat[i, j] = num_match_mat[i, j]
+                cost_ = np.sum(euclidean_dist)
+                if cost_<1 and cost_>0:
+                    cost_ = 1
+                else:
+                    cost_ = (cost_).astype(int)
+                cost_mat[i, j] = cost_
 
                 # use the both visible portion to calculate distance error
-                both_visible_indices = np.logical_and(gt_visibility_mat[i, :] > 0.5, pred_visibility_mat[j, :] > 0.5)
                 if np.sum(both_visible_indices[:close_range_idx]) > 0:
                     x_dist_mat_close[i, j] = np.sum(
                         x_dist[:close_range_idx] * both_visible_indices[:close_range_idx]) / np.sum(
@@ -320,8 +329,9 @@ class LaneEval(object):
                         z_dist[:close_range_idx] * both_visible_indices[:close_range_idx]) / np.sum(
                         both_visible_indices[:close_range_idx])
                 else:
-                    x_dist_mat_close[i, j] = self.dist_th
-                    z_dist_mat_close[i, j] = self.dist_th
+                    x_dist_mat_close[i, j] = -1
+                    z_dist_mat_close[i, j] = -1
+                    
 
                 if np.sum(both_visible_indices[close_range_idx:]) > 0:
                     x_dist_mat_far[i, j] = np.sum(
@@ -331,8 +341,8 @@ class LaneEval(object):
                         z_dist[close_range_idx:] * both_visible_indices[close_range_idx:]) / np.sum(
                         both_visible_indices[close_range_idx:])
                 else:
-                    x_dist_mat_far[i, j] = self.dist_th
-                    z_dist_mat_far[i, j] = self.dist_th
+                    x_dist_mat_far[i, j] = -1
+                    z_dist_mat_far[i, j] = -1
 
         # solve bipartite matching vis min cost flow solver
         match_results = SolveMinCostFlow(adj_mat, cost_mat)
@@ -356,17 +366,15 @@ class LaneEval(object):
                         p_lane += 1
                         match_pred_ids.append(pred_i)
                     if pred_category != []:
-                        if pred_category[pred_i] == gt_category[gt_i] or (
-                                pred_category[pred_i] == 20 and gt_category[gt_i] == 21):
-                            c_lane += 1  # category matched num
+                        if pred_category[pred_i] == gt_category[gt_i] or (pred_category[pred_i]==20 and gt_category[gt_i]==21):
+                            c_lane += 1    # category matched num
                     x_error_close.append(x_dist_mat_close[gt_i, pred_i])
                     x_error_far.append(x_dist_mat_far[gt_i, pred_i])
                     z_error_close.append(z_dist_mat_close[gt_i, pred_i])
                     z_error_far.append(z_dist_mat_far[gt_i, pred_i])
         # # Visulization to be added
         # if vis:
-        #     pass
-
+        #     pass 
 
         #print(gt_visibility_mat.shape)
         #print(gt_visibility_mat)
