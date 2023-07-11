@@ -54,35 +54,44 @@ class LaneEval(object):
                     raise
 
 
-    def gen_line(self, raw_file, gt_lanes, pred_lanes, P_g2im):
+    def gen_line(self, raw_file, gt_lanes, gt_visibility_mat,  pred_lanes,  pred_visibility_mat,  P_g2im):
            # 创建三维图形对象
         fig = plt.figure()
         ax = plt.axes(projection='3d')
+        y=self.y_samples
 
         gt_flag=0
         # 绘制gt的线
         for i in range(len(gt_lanes)):
 
-            gt_lanes_p=np.array(gt_lanes[i])
+            gt_lane=np.array(gt_lanes[i])
+            gt_lane= np.hstack([gt_lane, y.reshape(y.shape[0], 1)])
+            
+            # print(gt_visibility_mat[i])
+
+            gt_lane=gt_lane[gt_visibility_mat[i] > 0]
 
             if gt_flag == 0 :
 
                 # print(len(gt_lanes_p[:,0]))
                 # print(len(gt_lanes_p[:,1]))
-                ax.plot3D(gt_lanes_p[:,0], self.y_samples, gt_lanes_p[:,1], 'green', label='gt')
+                ax.plot3D(gt_lane[:,0], gt_lane[:,2], gt_lane[:,1], 'green', label='gt')
                 gt_flag=1
             else:
-                ax.plot3D(gt_lanes_p[:,0], self.y_samples, gt_lanes_p[:,1], 'green')
+                ax.plot3D(gt_lane[:,0], gt_lane[:, 2], gt_lane[:,1], 'green')
 
         prob_flag=0
         # 绘制prob的线
         for i in range(len(pred_lanes)):
-            prob_lanes_p = np.array(pred_lanes[i])
+            pred_lane = np.array(pred_lanes[i])
+            pred_lane= np.hstack([pred_lane, y.reshape(y.shape[0], 1)])
+            pred_lane=pred_lane[pred_visibility_mat[i] > 0]
+
             if prob_flag == 0 :
                 prob_flag = 1
-                ax.plot3D(prob_lanes_p[:,0], self.y_samples, prob_lanes_p[:,1], 'red', label='pred')
+                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'red', label='pred')
             else:
-                ax.plot3D(prob_lanes_p[:,0], self.y_samples, prob_lanes_p[:,1], 'red')
+                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'red')
 
 
         # 设置图例
@@ -115,8 +124,20 @@ class LaneEval(object):
 
         for i in range(len(gt_lanes)):
             gt_lane=np.array(gt_lanes[i])
+
+            gt_lane= np.hstack([gt_lane, y.reshape(y.shape[0], 1)])
+            gt_lane=gt_lane[gt_visibility_mat[i] > 0]
+
             # 车道线点列表
-            x_vals, y_vals = projective_transformation(P_g2im, gt_lane[:,0], self.y_samples, gt_lane[:,1])
+            x_vals, y_vals = projective_transformation(P_g2im, gt_lane[:,0], gt_lane[:,2], gt_lane[:,1])
+
+
+            #k = x_vals[x_vals < 0]
+            #b = y_vals[y_vals < 0] 
+            #print("======================================")
+            #print(k)
+            #print(b)
+            #print("======================================")
 
             # 绘制车道线
             line_color = (0, 0, 255)  # 线条颜色 (B, G, R)
@@ -126,9 +147,39 @@ class LaneEval(object):
                 image=cv2.line(image, (x_vals[k - 1].astype(int32), y_vals[k - 1].astype(int32)),
                         (x_vals[k].astype(int32), y_vals[k].astype(int32)), line_color, line_thickness)
                 
+        for i in range(len(pred_lanes)):
+            pred_lane=np.array(pred_lanes[i])
+
+            pred_lane= np.hstack([pred_lane, y.reshape(y.shape[0], 1)])
+            pred_lane=pred_lane[pred_visibility_mat[i] > 0]
+
+            # 车道线点列表
+            x_vals, y_vals = projective_transformation(P_g2im, pred_lane[:,0], pred_lane[:,2], pred_lane[:,1])
+
+
+            k = x_vals[x_vals < 0]
+            b = y_vals[y_vals < 0] 
+            print("----------------------------------")
+            print(k)
+            print(b)
+            print("----------------------------------")
+
+
+            # 绘制车道线
+            line_color = (0, 255, 0)  # 线条颜色 (B, G, R)
+            line_thickness = 2  # 线条粗细
+
+            for k in range(1, pred_lane.shape[0]):
+                image=cv2.line(image, (x_vals[k - 1].astype(int32), y_vals[k - 1].astype(int32)),
+                        (x_vals[k].astype(int32), y_vals[k].astype(int32)), line_color, line_thickness)
+
         # 保存编辑后的图像
         result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'_project.jpg')
-        cv2.imwrite(result_file_path, image)  
+        # cv2.imwrite(result_file_path, image)  
+        cv2.imwrite("output.jpg", image)  
+        input("continue.....")
+        pass
+
 
 
 
@@ -317,8 +368,10 @@ class LaneEval(object):
         #     pass
 
 
+        #print(gt_visibility_mat.shape)
+        #print(gt_visibility_mat)
         if self.save_compare_line: 
-            self.gen_line(raw_file, gt_lanes, pred_lanes, P_g2im)
+            self.gen_line(raw_file, gt_lanes, gt_visibility_mat, pred_lanes , pred_visibility_mat,   P_g2im)
 
         return r_lane, p_lane, c_lane, cnt_gt, cnt_pred, match_num, x_error_close, x_error_far, z_error_close, z_error_far
 
