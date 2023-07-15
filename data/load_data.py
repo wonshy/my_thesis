@@ -209,6 +209,37 @@ class lane_dataset(Dataset):
 
         self.fix_cam = False
 
+
+
+
+
+        self.cam_R = []
+        #camera 0
+        self.cam_R.append(np.array([[0, 0, 1],
+                               [-1, 0, 0],
+                               [0, -1, 0]], dtype=float))
+        #camera 1
+        self.cam_R.append(np.linalg.inv(np.array([[0, -np.cos(np.pi / 4), np.sin(np.pi / 4)  ],
+                                             [0, -np.sin(np.pi / 4), -np.cos(np.pi / 4) ],
+                                             [1, 0                 , 0                  ]], dtype=float)))
+
+        #camera 2
+        self.cam_R.append(np.linalg.inv(np.array([[-1, 0               , 0                  ],
+                                             [0, np.sin(np.pi / 4), np.cos(np.pi / 4)  ],
+                                             [0, np.cos(np.pi / 4), -np.sin(np.pi / 4) ]], dtype=float)))
+        
+        #camera 3
+        self.cam_R.append(np.linalg.inv(np.array([[-1, 0, 0],
+                                             [0, 0, -1],
+                                             [0, -1, 0]], dtype=float)))
+
+        #camera 4
+        self.cam_R.append(np.linalg.inv(np.array([[-1, 0, 0],
+                                             [0,  0, 1],
+                                             [0,  1, 0]], dtype=float)))
+
+
+
         # ======= step 1 =======
         # compute anchor steps
         self.x_min, self.x_max = self.top_view_region[0, 0], self.top_view_region[1, 0]
@@ -283,12 +314,12 @@ class lane_dataset(Dataset):
 
         # ======= step 1 =======
         # preprocess data from json file
-        img_name, extrinsics, intrinsics, \
+        img_name, front_extrinsic, extrinsics, intrinsics, \
         gt_lanes, gt_vis_inds, gt_category_3d, \
         _laneline_ass_id = self.preprocess_data_from_json_openlane(idx_json_file)
 
         image, images, all_extrinsics, all_intrinsics, all_rots, all_trans, all_post_rots, all_post_trans=self.image_data_get(
-            idx_json_file, img_name, intrinsics, extrinsics)
+            idx_json_file, img_name, front_extrinsic, intrinsics, extrinsics)
 
 
         gt_anchor = np.zeros([self.anchor_num, self.num_types, self.anchor_dim], dtype=np.float32)
@@ -344,8 +375,11 @@ class lane_dataset(Dataset):
     def preprocess_data_from_json_openlane(self, idx_json_file):
 
         _label_image_path = None
+        front_extrinsic=None
         cam_extrinsics = None
         cam_intrinsics = None
+
+
 
         # print(idx_json_file)
         with open(idx_json_file, 'r') as file:
@@ -357,9 +391,9 @@ class lane_dataset(Dataset):
             #image  的地址
             _label_image_path = image_path
 
-            cam_extrinsics = np.array(info_dict['extrinsic'])
+            front_extrinsic = np.array(info_dict['extrinsic'])
             # Re-calculate extrinsic matrix based on ground coordinate
-            cam_extrinsics = self.extrinsic_recalculate(cam_extrinsics)
+            cam_extrinsics = self.extrinsic_recalculate(front_extrinsic, front_extrinsic, 0)
 
             cam_intrinsics = info_dict['intrinsic']
             cam_intrinsics = np.array(cam_intrinsics)
@@ -461,7 +495,7 @@ class lane_dataset(Dataset):
             lane[:, 0] = np.divide(lane[:, 0], self._x_off_std)
             lane[:, 1] = np.divide(lane[:, 1], self._z_std)
 
-        return _label_image_path, cam_extrinsics, cam_intrinsics, \
+        return _label_image_path, front_extrinsic, cam_extrinsics, cam_intrinsics, \
                gt_anchors, visibility_vectors, category_ids, ass_ids
 
 
@@ -474,18 +508,28 @@ class lane_dataset(Dataset):
         return dst_file
 
     # Re-calculate extrinsic matrix based on ground coordinate
-    def extrinsic_recalculate(self, extrinsic):
+    def extrinsic_recalculate(self, extrinsic, front_extrinsic, cam_num):
         R_vg = np.array([[0, 1, 0],
                             [-1, 0, 0],
                             [0, 0, 1]], dtype=float)
-        R_gc = np.array([[1, 0, 0],
-                            [0, 0, 1],
-                            [0, -1, 0]], dtype=float)
-        extrinsic[:3, :3] = np.matmul(np.matmul(
-            np.matmul(np.linalg.inv(R_vg), extrinsic[:3, :3]),
-            R_vg), R_gc)
+        # R_gc = np.array([[1, 0, 0],
+        #                     [0, 0, 1],
+        #                     [0, -1, 0]], dtype=float)
 
-        extrinsic[0:2, 3] = 0.0
+        extrinsic[:3, :3] = np.matmul(
+                                    np.matmul(np.linalg.inv(R_vg), extrinsic[:3, :3]),
+                                        self.cam_R[cam_num])
+        
+        # extrinsic[:3, :3] = np.matmul(np.matmul(
+        #     np.matmul(np.linalg.inv(R_vg), extrinsic[:3, :3]),
+        #     R_vg), R_gc)
+
+
+        #Translate  camera coordinate to 3D-LanNet vehicle coordinate
+        if cam_num == 0:
+            extrinsic[0:2, 3] = 0.0
+        else:
+            extrinsic[:, 3] = extrinsic[:, 3] - front_extrinsic[:, 3]
 
         return extrinsic
 
@@ -628,7 +672,7 @@ class lane_dataset(Dataset):
 
 
 
-    def image_data_get(self, label_file, main_image_path, main_instrinsic, main_extrinsic):
+    def image_data_get(self, label_file, main_image_path,front_extrinsic, main_instrinsic, main_extrinsic):
 
         images = []
         all_intrinsics = []
@@ -700,7 +744,7 @@ class lane_dataset(Dataset):
                 intrinsic = np.array(info_dict['intrinsic'])
                 extrinsic = np.array(info_dict['extrinsic'])
                 # Re-calculate extrinsic matrix based on ground coordinate
-                extrinsic = self.extrinsic_recalculate(extrinsic)
+                extrinsic = self.extrinsic_recalculate(extrinsic,front_extrinsic, extend_num)
 
                 intrinsic=torch.Tensor(intrinsic)
                 extrinsic=torch.Tensor(extrinsic)
@@ -828,7 +872,7 @@ class lane_dataset(Dataset):
                 # get  extrinsic and intrinsic
                 cam_extrinsics = np.array(info_dict['extrinsic'])
                 ########################remove?###############################
-                cam_extrinsics = self.extrinsic_recalculate(cam_extrinsics)
+                cam_extrinsics = self.extrinsic_recalculate(cam_extrinsics, 0)
                 cam_extrinsics_all.append(cam_extrinsics)
 
                 gt_cam_height = cam_extrinsics[2, 3]

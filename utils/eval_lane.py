@@ -430,9 +430,25 @@ class LaneEval(object):
             R_gc = np.array([[1, 0, 0],
                                 [0, 0, 1],
                                 [0, -1, 0]], dtype=float)
-            cam_extrinsics[:3, :3] = np.matmul(np.matmul(
+            
+
+            R_f = np.array([[0, 0, 1],
+                                [-1, 0, 0],
+                                [0, -1, 0]], dtype=float)
+
+
+            # cam_extrinsics[:3, :3] = np.matmul(np.matmul(
+            #                             np.matmul(np.linalg.inv(R_vg), cam_extrinsics[:3, :3]),
+            #                                 R_vg), R_gc)
+            
+
+            cam_extrinsics[:3, :3] = np.matmul(
                                         np.matmul(np.linalg.inv(R_vg), cam_extrinsics[:3, :3]),
-                                            R_vg), R_gc)
+                                            R_f)
+
+
+
+
             gt_cam_height = cam_extrinsics[2, 3]
             gt_cam_pitch = 0
 
