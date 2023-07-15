@@ -529,7 +529,7 @@ class lane_dataset(Dataset):
         if cam_num == 0:
             extrinsic[0:2, 3] = 0.0
         else:
-            extrinsic[:, 3] = extrinsic[:, 3] - front_extrinsic[:, 3]
+            extrinsic[0:3, 3] = extrinsic[0:3, 3] - front_extrinsic[0:3, 3]
 
         return extrinsic
 
