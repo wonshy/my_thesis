@@ -76,15 +76,24 @@ def config(args):
         # 'final_dim': (320, 480),#good
 
         ######B0-good############
-        'resize_lim': (0.124, 0.135),
-        'final_dim': (160, 256),#good
-        'rot_lim': (-5.4, 5.4),
-        'bot_pct_lim': (0.0, 0.03),
+        # 'resize_lim': (0.124, 0.135),
+        # 'final_dim': (160, 256),#good
+        # 'rot_lim': (-5.4, 5.4),
+        # 'bot_pct_lim': (0.0, 0.03),
         ######B6-good############
         # 'resize_lim': (0.311, 0.289),
         # 'final_dim': (384, 576),#good
         # 'rot_lim': (-18.4, 18.4),
         # 'bot_pct_lim': (0.01, 0.13),
+
+
+########################################################
+
+        'resize_lim': (0.193, 0.225),
+        'final_dim': (352, 128),#good
+        'rot_lim': (-5.4, 5.4),
+        'bot_pct_lim': (0.0, 0.22),
+
 
         'FRONT_H': 1280, 'FRONT_W': 1920,
         'SIDE_H': 886, 'SIDE_W': 1920,
