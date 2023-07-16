@@ -70,6 +70,46 @@ def config(args):
     args.pretrained = False
 
 
+    args.data_aug_conf = {
+        #efficient 要求分辨率 必须32的倍数
+        # 'final_dim': (128, 352),
+        # 'final_dim': (320, 480),#good
+
+        ######B0-good############
+        'resize_lim': (0.124, 0.135),
+        'final_dim': (160, 256),#good
+        'rot_lim': (-5.4, 5.4),
+        'bot_pct_lim': (0.0, 0.03),
+        ######B6-good############
+        # 'resize_lim': (0.311, 0.289),
+        # 'final_dim': (384, 576),#good
+        # 'rot_lim': (-18.4, 18.4),
+        # 'bot_pct_lim': (0.01, 0.13),
+
+        'FRONT_H': 1280, 'FRONT_W': 1920,
+        'SIDE_H': 886, 'SIDE_W': 1920,
+
+        'rand_flip': True,
+
+        # src=(h:1280, w:1920)
+        # dest = src*rot_limt*(1 - bot_pct_lim)
+        # crop =(dest - final_dim)
+        # img =  (crop_w, crop_h, crop_w + final_dim_W, crop_h + final_dim_H)
+        # 最终的结果是，越大的裁剪的越多， 填补的也越多
+
+        'cams': ['CAM_FRONT', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT',
+                    'CAM_LEFT', 'CAM_RIGHT'],
+        'Ncams': 5,
+    }
+
+
+
+
+
+
+
+
+
     # origh .
     args.org_h = 1280
     args.H = args.org_h
@@ -81,11 +121,14 @@ def config(args):
     # args.resize_h = 360
     # args.resize_w = 480
     # follow lift-split
-    args.resize_h = 128
-    args.resize_w = 352
 
-    # ipm
-    args.ipm_h = 208
+
+
+    # args.resize_h = 128
+    # args.resize_w = 352
+
+    # # ipm
+    # args.ipm_h = 208
     args.ipm_w = 128
 
     args.crop_y = 0

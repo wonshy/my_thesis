@@ -190,15 +190,15 @@ class lane_dataset(Dataset):
 
         # dataset parameters
         self.camera_nums = args.camera_nums
-        self.h_org = args.org_h
-        self.w_org = args.org_w
-        self.h_crop = args.crop_y
+        # self.h_org = args.org_h
+        # self.w_org = args.org_w
+        # self.h_crop = args.crop_y
 
         #计算ahchor 的参数
         # parameters related to service network
-        self.h_net = args.resize_h
-        self.w_net = args.resize_w
-        self.ipm_h = args.ipm_h
+        # self.h_net = args.resize_h
+        # self.w_net = args.resize_w
+        # self.ipm_h = args.ipm_h
         self.ipm_w = args.ipm_w
         self.top_view_region = args.top_view_region
 
@@ -208,10 +208,6 @@ class lane_dataset(Dataset):
         self.max_lanes = args.max_lanes
 
         self.fix_cam = False
-
-
-
-
 
         self.cam_R = []
         #camera 0
@@ -287,7 +283,6 @@ class lane_dataset(Dataset):
         # ======= step 2 =======
         # parse ground-truth file
         self._x_off_std, \
-        self._y_off_std, \
         self._z_std  = self.init_dataset_openlane(dataset_base_dir, json_file_path, 
             extend_dataset_base_dir, extend_json_file_path)
 
@@ -559,7 +554,7 @@ class lane_dataset(Dataset):
 
 
     # convert labeled laneline to anchor format
-    def label_lane_convert(self, cam_intrinsics_all, cam_extrinsics_all, gt_cam_height,
+    def label_lane_convert(self, cam_intrinsics_all, cam_extrinsics_all,
         gt_laneline_visibility_all, gt_laneline_category_all, gt_laneline_pts_all_org, gt_laneline_pts_all):
 
         gt_laneline_ass_ids = []
@@ -625,7 +620,6 @@ class lane_dataset(Dataset):
                 lane_x_off_all.append(gt_anchors[i][:, 0])
                 lane_z_all.append(gt_anchors[i][:, 1])
                 # compute y offset when transformed back to 3D space
-                lane_y_off_all.append(-gt_anchors[i][:, 1] * self.anchor_y_steps / gt_cam_height)
             visibility_all_flat.extend(visibility_vectors)
             gt_laneline_ass_ids.append(ass_ids)
             gt_laneline_pts_all[idx] = gt_anchors
@@ -633,20 +627,23 @@ class lane_dataset(Dataset):
             gt_laneline_category_all[idx] = category_ids
 
         lane_x_off_all = np.array(lane_x_off_all)
-        lane_y_off_all = np.array(lane_y_off_all)
         lane_z_all = np.array(lane_z_all)
         visibility_all_flat = np.array(visibility_all_flat)
 
         # computed weighted std based on visibility
         lane_x_off_std = np.sqrt(np.average(lane_x_off_all ** 2, weights=visibility_all_flat, axis=0))
-        lane_y_off_std = np.sqrt(np.average(lane_y_off_all ** 2, weights=visibility_all_flat, axis=0))
         lane_z_std = np.sqrt(np.average(lane_z_all ** 2, weights=visibility_all_flat, axis=0))
 
-        return lane_x_off_std, lane_y_off_std, lane_z_std
+        return lane_x_off_std, lane_z_std
 
 
-    def sample_augmentation(self):
-        H, W = self.data_aug_conf['H'], self.data_aug_conf['W']
+    def sample_augmentation(self,cam_num):
+
+        if cam_num < 3:
+            H, W = self.data_aug_conf['FRONT_H'], self.data_aug_conf['FRONT_W']
+        else:
+            H, W = self.data_aug_conf['SIDE_H'], self.data_aug_conf['SIDE_W']
+
         fH, fW = self.data_aug_conf['final_dim']
         if self.is_train:
             resize = np.random.uniform(*self.data_aug_conf['resize_lim'])
@@ -691,7 +688,7 @@ class lane_dataset(Dataset):
 
             post_rot = torch.eye(2)
             post_tran = torch.zeros(2)
-            resize, resize_dims, crop, flip, rotate = self.sample_augmentation()
+            resize, resize_dims, crop, flip, rotate = self.sample_augmentation(0)
             main_image, post_rot2, post_tran2 = img_transform(main_image, post_rot, post_tran,
                         resize, resize_dims, crop,
                         flip, rotate)
@@ -761,7 +758,7 @@ class lane_dataset(Dataset):
 
                     post_rot = torch.eye(2)
                     post_tran = torch.zeros(2)
-                    resize, resize_dims, crop, flip, rotate = self.sample_augmentation()
+                    resize, resize_dims, crop, flip, rotate = self.sample_augmentation(extend_num)
                     img, post_rot2, post_tran2 = img_transform(img, post_rot, post_tran,
                                 resize, resize_dims, crop,
                                 flip, rotate)
@@ -855,7 +852,7 @@ class lane_dataset(Dataset):
         gt_laneline_category_all = []
         cam_intrinsics_all = []
         cam_extrinsics_all = []
-        
+
         for label_file in label_list:
             image_path = ''
 
@@ -872,10 +869,12 @@ class lane_dataset(Dataset):
                 # get  extrinsic and intrinsic
                 cam_extrinsics = np.array(info_dict['extrinsic'])
                 ########################remove?###############################
-                cam_extrinsics = self.extrinsic_recalculate(cam_extrinsics, 0)
+                cam_extrinsics = self.extrinsic_recalculate(cam_extrinsics, cam_extrinsics, 0)
                 cam_extrinsics_all.append(cam_extrinsics)
 
-                gt_cam_height = cam_extrinsics[2, 3]
+                # gt_cam_height = cam_extrinsics[2, 3]
+                # gt_cam_height_all.append(gt_cam_height)
+
                 #########################done##################################
                 cam_intrinsics = info_dict['intrinsic']
                 cam_intrinsics = np.array(cam_intrinsics)
@@ -932,12 +931,11 @@ class lane_dataset(Dataset):
 
         # ======= step 6 =======
         # # convert labeled laneline to anchor format
-        lane_x_off_std,lane_y_off_std,lane_z_std = self.label_lane_convert(cam_intrinsics_all, cam_extrinsics_all, gt_cam_height,
+        lane_x_off_std,lane_z_std = self.label_lane_convert(cam_intrinsics_all, cam_extrinsics_all,
             gt_laneline_visibility_all, gt_laneline_category_all, gt_laneline_pts_all_org, gt_laneline_pts_all)
 
         cache_file = {}
         cache_file["lane_x_off_std"] = lane_x_off_std
-        cache_file["lane_y_off_std"] = lane_y_off_std
         cache_file["lane_z_std"] = lane_z_std
 
         if "training/" in json_file_path:
@@ -955,21 +953,17 @@ class lane_dataset(Dataset):
                 with open("./.cache/openlane_preprocess_valid_newanchor.pkl", "wb") as f:
                     pickle.dump(cache_file, f)
 
-        return lane_x_off_std, lane_y_off_std, lane_z_std
+        return lane_x_off_std, lane_z_std
 
     def read_cache_file_beta(self, cache_file):
 
         lane_x_off_std = cache_file["lane_x_off_std"]
-        lane_y_off_std = cache_file["lane_y_off_std"]
         lane_z_std = cache_file["lane_z_std"]
-        return lane_x_off_std, lane_y_off_std, lane_z_std
+        return lane_x_off_std, lane_z_std
 
 
     def set_x_off_std(self, x_off_std):
         self._x_off_std = x_off_std
-
-    def set_y_off_std(self, y_off_std):
-        self._y_off_std = y_off_std
 
     def set_z_std(self, z_std):
         self._z_std = z_std
@@ -1099,133 +1093,133 @@ class lane_dataset(Dataset):
 
         return filtered_lane
 
-    def transform_annotation(self, anno, category, img_wh):
-        # net size: self.h_net, self.w_net
-        img_w, img_h = img_wh
+    # def transform_annotation(self, anno, category, img_wh):
+    #     # net size: self.h_net, self.w_net
+    #     img_w, img_h = img_wh
 
-        old_lanes = anno.copy()
+    #     old_lanes = anno.copy()
 
-        # removing lanes with less than 2 points
-        old_lanes = filter(lambda x: len(x) > 1, old_lanes)
-        # sort lane points by Y (bottom to top of the image)
-        old_lanes = [sorted(lane, key=lambda x: -x[1]) for lane in old_lanes]
-        # remove points with same Y (keep first occurrence)
-        old_lanes = [self.filter_lane(lane) for lane in old_lanes]
-        # normalize the annotation coordinates
-        old_lanes = [[[x * self.w_net / float(img_w), y * self.h_net / float(img_h)] for x, y in lane]
-                     for lane in old_lanes]
-        # create tranformed annotations
-        # lanes = np.ones((self.max_lanes, 2 + 1 + 1 + 1 + self.n_offsets),
-        #                 dtype=np.float32) * -1e5  # 2 scores, 1 start_y, 1 start_x, 1 length, S+1 coordinates
+    #     # removing lanes with less than 2 points
+    #     old_lanes = filter(lambda x: len(x) > 1, old_lanes)
+    #     # sort lane points by Y (bottom to top of the image)
+    #     old_lanes = [sorted(lane, key=lambda x: -x[1]) for lane in old_lanes]
+    #     # remove points with same Y (keep first occurrence)
+    #     old_lanes = [self.filter_lane(lane) for lane in old_lanes]
+    #     # normalize the annotation coordinates
+    #     old_lanes = [[[x * self.w_net / float(img_w), y * self.h_net / float(img_h)] for x, y in lane]
+    #                  for lane in old_lanes]
+    #     # create tranformed annotations
+    #     # lanes = np.ones((self.max_lanes, 2 + 1 + 1 + 1 + self.n_offsets),
+    #     #                 dtype=np.float32) * -1e5  # 2 scores, 1 start_y, 1 start_x, 1 length, S+1 coordinates
 
-        # num_category scores, 1 start_y, 1 start_x, S coordinates, S visiblity
-        lanes = np.ones((self.max_lanes, self.num_category + 1 + 1 + 2 * self.n_offsets),
-                        dtype=np.float32) * -1e5
-        # lanes are invalid and all points are invisible by default
-        lanes[:, 0] = 1
-        # lanes[:, 1] = 0
-        lanes[:, 1:self.num_category] = 0
-        lanes[:, self.num_category + 2 + self.n_offsets:] = 0
-        for lane_idx, lane in enumerate(old_lanes):
-            try:
-                # xs_outside_image, xs_inside_image = self.sample_lane(lane, self.offsets_ys)
-                xs_outside_image, xs_inside_image, interp_xs_length, extrap_ys_length = \
-                    self.sample_lane(lane, self.offsets_ys)
-            except AssertionError:
-                # print("Sample lane error with #{} lane".format(lane_idx))
-                continue
-            if len(xs_inside_image) == 0:
-                continue
-            all_xs = np.hstack((xs_outside_image, xs_inside_image))
-            # lanes[lane_idx, 0] = 0
-            # lanes[lane_idx, 1] = 1
-            # lanes[lane_idx, 2] = len(xs_outside_image) / self.n_strips
-            # lanes[lane_idx, 3] = xs_inside_image[0]
-            # lanes[lane_idx, 4] = len(xs_inside_image)
-            # lanes[lane_idx, 5:5 + len(all_xs)] = all_xs
+    #     # num_category scores, 1 start_y, 1 start_x, S coordinates, S visiblity
+    #     lanes = np.ones((self.max_lanes, self.num_category + 1 + 1 + 2 * self.n_offsets),
+    #                     dtype=np.float32) * -1e5
+    #     # lanes are invalid and all points are invisible by default
+    #     lanes[:, 0] = 1
+    #     # lanes[:, 1] = 0
+    #     lanes[:, 1:self.num_category] = 0
+    #     lanes[:, self.num_category + 2 + self.n_offsets:] = 0
+    #     for lane_idx, lane in enumerate(old_lanes):
+    #         try:
+    #             # xs_outside_image, xs_inside_image = self.sample_lane(lane, self.offsets_ys)
+    #             xs_outside_image, xs_inside_image, interp_xs_length, extrap_ys_length = \
+    #                 self.sample_lane(lane, self.offsets_ys)
+    #         except AssertionError:
+    #             # print("Sample lane error with #{} lane".format(lane_idx))
+    #             continue
+    #         if len(xs_inside_image) == 0:
+    #             continue
+    #         all_xs = np.hstack((xs_outside_image, xs_inside_image))
+    #         # lanes[lane_idx, 0] = 0
+    #         # lanes[lane_idx, 1] = 1
+    #         # lanes[lane_idx, 2] = len(xs_outside_image) / self.n_strips
+    #         # lanes[lane_idx, 3] = xs_inside_image[0]
+    #         # lanes[lane_idx, 4] = len(xs_inside_image)
+    #         # lanes[lane_idx, 5:5 + len(all_xs)] = all_xs
 
-            lanes[lane_idx, 0] = 0
-            lanes[lane_idx, category[lane_idx]] = 1
-            lanes[lane_idx, self.num_category] = len(xs_outside_image) / self.n_strips
-            lanes[lane_idx, self.num_category + 1] = xs_inside_image[0]
-            lanes[lane_idx, self.num_category + 2: self.num_category + 2 + len(all_xs)] = all_xs
-            # print("extrap_ys_length: ", extrap_ys_length)
-            # print("len of xs_inside_image: ", len(xs_inside_image))
-            lanes[lane_idx, self.num_category + 2 + self.n_offsets + extrap_ys_length:
-                            self.num_category + 2 + self.n_offsets +
-                            min(len(all_xs), self.n_offsets)] = 1
-        new_anno = lanes.copy()
-        # print("label.size in transform_annotation: ", np.shape(new_anno))
-        return new_anno
+    #         lanes[lane_idx, 0] = 0
+    #         lanes[lane_idx, category[lane_idx]] = 1
+    #         lanes[lane_idx, self.num_category] = len(xs_outside_image) / self.n_strips
+    #         lanes[lane_idx, self.num_category + 1] = xs_inside_image[0]
+    #         lanes[lane_idx, self.num_category + 2: self.num_category + 2 + len(all_xs)] = all_xs
+    #         # print("extrap_ys_length: ", extrap_ys_length)
+    #         # print("len of xs_inside_image: ", len(xs_inside_image))
+    #         lanes[lane_idx, self.num_category + 2 + self.n_offsets + extrap_ys_length:
+    #                         self.num_category + 2 + self.n_offsets +
+    #                         min(len(all_xs), self.n_offsets)] = 1
+    #     new_anno = lanes.copy()
+    #     # print("label.size in transform_annotation: ", np.shape(new_anno))
+    #     return new_anno
 
-    def sample_lane(self, points, sample_ys):
-        # this function expects the points to be sorted
-        points = np.array(points)
-        if not np.all(points[1:, 1] < points[:-1, 1]):
-            raise Exception('Annotaion points have to be sorted')
-        x, y = points[:, 0], points[:, 1]
+    # def sample_lane(self, points, sample_ys):
+    #     # this function expects the points to be sorted
+    #     points = np.array(points)
+    #     if not np.all(points[1:, 1] < points[:-1, 1]):
+    #         raise Exception('Annotaion points have to be sorted')
+    #     x, y = points[:, 0], points[:, 1]
 
-        # interpolate points inside domain
-        # BUG remains here: https://github.com/lucastabelini/LaneATT/issues/10
-        assert len(points) > 1
-        interp = UnivariateSpline(y[::-1], x[::-1], k=min(3, len(points) - 1))
-        domain_min_y = y.min()
-        domain_max_y = y.max()
-        sample_ys_inside_domain = sample_ys[(sample_ys >= domain_min_y) & (sample_ys <= domain_max_y)]
-        assert len(sample_ys_inside_domain) > 0
-        interp_xs = interp(sample_ys_inside_domain)
+    #     # interpolate points inside domain
+    #     # BUG remains here: https://github.com/lucastabelini/LaneATT/issues/10
+    #     assert len(points) > 1
+    #     interp = UnivariateSpline(y[::-1], x[::-1], k=min(3, len(points) - 1))
+    #     domain_min_y = y.min()
+    #     domain_max_y = y.max()
+    #     sample_ys_inside_domain = sample_ys[(sample_ys >= domain_min_y) & (sample_ys <= domain_max_y)]
+    #     assert len(sample_ys_inside_domain) > 0
+    #     interp_xs = interp(sample_ys_inside_domain)
 
-        # extrapolate lane to the bottom of the image with a straight line using the 2 points closest to the bottom
-        num_points_selected = min(10, np.shape(points)[0])
-        two_closest_points = points[:num_points_selected]
-        extrap = np.polyfit(two_closest_points[:, 1], two_closest_points[:, 0], deg=2)
-        extrap_ys = sample_ys[sample_ys > domain_max_y]
-        extrap_xs = np.polyval(extrap, extrap_ys)
-        all_xs = np.hstack((extrap_xs, interp_xs))
+    #     # extrapolate lane to the bottom of the image with a straight line using the 2 points closest to the bottom
+    #     num_points_selected = min(10, np.shape(points)[0])
+    #     two_closest_points = points[:num_points_selected]
+    #     extrap = np.polyfit(two_closest_points[:, 1], two_closest_points[:, 0], deg=2)
+    #     extrap_ys = sample_ys[sample_ys > domain_max_y]
+    #     extrap_xs = np.polyval(extrap, extrap_ys)
+    #     all_xs = np.hstack((extrap_xs, interp_xs))
 
-        interp_xs_length = np.shape(interp_xs)[0]
-        extrap_ys_length = np.shape(extrap_ys)[0]
+    #     interp_xs_length = np.shape(interp_xs)[0]
+    #     extrap_ys_length = np.shape(extrap_ys)[0]
 
-        # separate between inside and outside points
-        inside_mask = (all_xs >= 0) & (all_xs < self.w_net)
-        xs_inside_image = all_xs[inside_mask]
-        xs_outside_image = all_xs[~inside_mask]
+    #     # separate between inside and outside points
+    #     inside_mask = (all_xs >= 0) & (all_xs < self.w_net)
+    #     xs_inside_image = all_xs[inside_mask]
+    #     xs_outside_image = all_xs[~inside_mask]
 
-        return xs_outside_image, xs_inside_image, interp_xs_length, extrap_ys_length
+    #     return xs_outside_image, xs_inside_image, interp_xs_length, extrap_ys_length
 
-    # this is for gt labels
-    # use model.decode to decode 2D lanes
-    def label_to_lanes(self, label):
-        lanes = []
-        # print("label.size in label_to_lanes: ", np.shape(label))
-        for l in label:
-            # if l[1] == 0:
-            if l[0] != 0:
-                continue
-            # xs = l[5:] / self.w_net
-            xs = l[self.num_category + 2:self.num_category + 2 + self.n_offsets] / self.w_net
-            ys = self.offsets_ys / self.h_net
-            # start = int(round(l[2] * self.n_strips))
-            start = int(round(l[self.num_category] * self.n_strips))
-            # length = int(round(l[4]))
-            l_vis = l[self.num_category + 2 + self.n_offsets:]
-            idx = int(np.nonzero(l_vis == 1)[0][-1])
-            start_vis_idx = int(np.nonzero(l_vis == 1)[0][0])
-            start = start_vis_idx
-            length = idx - start + 1
-            # idx = self.num_category+2+2*self.n_offsets - 1
-            # while l[idx] < 1e-5 and idx > self.num_category+2+self.n_offsets:
-            #     idx -= 1
-            # length = int(idx - (self.num_category+2+self.n_offsets) - start + 1)
-            xs = xs[start:start + length][::-1]
-            ys = ys[start:start + length][::-1]
-            xs = xs.reshape(-1, 1)
-            ys = ys.reshape(-1, 1)
-            points = np.hstack((xs, ys))
-            if np.shape(points)[0] < 2:
-                continue
-            lanes.append(Lane(points=points))
-        return lanes
+    # # this is for gt labels
+    # # use model.decode to decode 2D lanes
+    # def label_to_lanes(self, label):
+    #     lanes = []
+    #     # print("label.size in label_to_lanes: ", np.shape(label))
+    #     for l in label:
+    #         # if l[1] == 0:
+    #         if l[0] != 0:
+    #             continue
+    #         # xs = l[5:] / self.w_net
+    #         xs = l[self.num_category + 2:self.num_category + 2 + self.n_offsets] / self.w_net
+    #         ys = self.offsets_ys / self.h_net
+    #         # start = int(round(l[2] * self.n_strips))
+    #         start = int(round(l[self.num_category] * self.n_strips))
+    #         # length = int(round(l[4]))
+    #         l_vis = l[self.num_category + 2 + self.n_offsets:]
+    #         idx = int(np.nonzero(l_vis == 1)[0][-1])
+    #         start_vis_idx = int(np.nonzero(l_vis == 1)[0][0])
+    #         start = start_vis_idx
+    #         length = idx - start + 1
+    #         # idx = self.num_category+2+2*self.n_offsets - 1
+    #         # while l[idx] < 1e-5 and idx > self.num_category+2+self.n_offsets:
+    #         #     idx -= 1
+    #         # length = int(idx - (self.num_category+2+self.n_offsets) - start + 1)
+    #         xs = xs[start:start + length][::-1]
+    #         ys = ys[start:start + length][::-1]
+    #         xs = xs.reshape(-1, 1)
+    #         ys = ys.reshape(-1, 1)
+    #         points = np.hstack((xs, ys))
+    #         if np.shape(points)[0] < 2:
+    #             continue
+    #         lanes.append(Lane(points=points))
+    #     return lanes
 
 
 def seed_worker(worker_id):

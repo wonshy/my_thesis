@@ -247,35 +247,6 @@ class Runner:
             'zbound': args.zbound,
             'dbound': args.dbound,
         }
-        self.data_aug_conf = {
-            #efficient 要求分辨率 必须32的倍数
-            # 'final_dim': (128, 352),
-            # 'final_dim': (320, 480),#good
-
-            ######B0-good############
-            'resize_lim': (0.124, 0.135),
-            'final_dim': (160, 256),#good
-            'rot_lim': (-5.4, 5.4),
-            'bot_pct_lim': (0.0, 0.03),
-            ######B6-good############
-            # 'resize_lim': (0.311, 0.289),
-            # 'final_dim': (384, 576),#good
-            # 'rot_lim': (-18.4, 18.4),
-            # 'bot_pct_lim': (0.01, 0.13),
-
-            'H': 1280, 'W': 1920,
-            'rand_flip': True,
-
-            # src=(h:1280, w:1920)
-            # dest = src*rot_limt*(1 - bot_pct_lim)
-            # crop =(dest - final_dim)
-            # img =  (crop_w, crop_h, crop_w + final_dim_W, crop_h + final_dim_H)
-            # 最终的结果是，越大的裁剪的越多， 填补的也越多
-
-            'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT',
-                     'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT'],
-            'Ncams': 1,
-        }
 
         #set device.
         self.device = torch.device("cuda", args.local_rank)
@@ -330,7 +301,7 @@ class Runner:
         args = self.args
         train_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'training/', 
                     args.extend_dataset_dir, args.extend_data_dir + 'training/',
-                    args, self.data_aug_conf, is_data_aug=True, save_std=True)
+                    args, args.data_aug_conf, is_data_aug=True, save_std=True)
 
         # TODO:GPU need?
         # # train_dataset.normalize_lane_label()
@@ -345,7 +316,7 @@ class Runner:
         args = self.args
 
         valid_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'validation/',
-                    args.extend_dataset_dir, args.extend_data_dir + 'validation/', args,self.data_aug_conf)
+                    args.extend_dataset_dir, args.extend_data_dir + 'validation/', args, args.data_aug_conf)
 
         # assign std of valid dataset to be consistent with train dataset
         valid_dataset.set_x_off_std(self.train_dataset._x_off_std)
@@ -360,7 +331,7 @@ class Runner:
         args = self.args
 
         test_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'test/' + test_case +'/',
-                        args.extend_dataset_dir, args.extend_data_dir + 'validation/', args,self.data_aug_conf)
+                        args.extend_dataset_dir, args.extend_data_dir + 'validation/', args, args.data_aug_conf)
 
         # assign std of test dataset to be consistent with train dataset
         test_dataset.set_x_off_std(self.train_dataset._x_off_std)
@@ -375,7 +346,7 @@ class Runner:
     def _get_model_ddp(self):
         args = self.args
         # Define network
-        model = compile_model(self.grid_conf, self.data_aug_conf, 1, args.num_y_steps, args.num_category)
+        model = compile_model(self.grid_conf, args.data_aug_conf, 1, args.num_y_steps, args.num_category)
 
         if args.sync_bn:
             if args.proc_id == 0:
@@ -665,7 +636,7 @@ class Runner:
 
     def eval(self):
         args = self.args
-        self.model = compile_model(self.grid_conf, self.data_aug_conf, 1, args.num_y_steps, args.num_category)
+        self.model = compile_model(self.grid_conf, args.data_aug_conf, 1, args.num_y_steps, args.num_category)
 
         if args.sync_bn:
             if args.proc_id == 0:
@@ -777,13 +748,6 @@ class Runner:
 
 
         res = []
-
-
-
-
-
-
-
 
         # Start validation loop
         with torch.no_grad():
