@@ -40,18 +40,34 @@ class CamEncode(nn.Module):
 
 
         self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
-        # self.trunk = EfficientNet.from_pretrained("efficientnet-b6")
+        # self.up1 = Up(320+112, 512) #b0 x16
+        self.up1 = Up(320+40, 512, scale_factor=32/self.downsample) #b0 x8
 
-        self.up1 = Up(320+112, 512) #b0 x16
+
         # self.up1 = Up(320+24, 512, scale_factor=32/self.downsample) #b0 x4
         
         # self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
+
+        
+        # self.trunk = EfficientNet.from_pretrained("efficientnet-b6")
         # self.up1 = Up(576+200, 512)  #b6 x16
         # self.up1 = Up(576+72, 512, scale_factor=32/self.downsample) #b6 x8
         # self.up1 = Up(576+40, 512, scale_factor=32/self.downsample) #b6 x4
 
 
         # self.up1 = Up(640+224, 512) #b7
+
+
+
+        # self.trunk = EfficientNet.from_pretrained("efficientnet-b5")
+        # self.up1 = Up(512+176, 512) #b5 x 16
+
+
+        # self.trunk = EfficientNet.from_pretrained("efficientnet-b3")
+        # self.up1 = Up(512+8, 512) #b3 x 16
+
+
+
 
         self.depthnet = nn.Conv2d(512, self.D + self.C, kernel_size=1, padding=0)
 
@@ -321,7 +337,7 @@ class LiftSplatShoot(nn.Module):
         self.bx = nn.Parameter(bx, requires_grad=False)
         self.nx = nn.Parameter(nx, requires_grad=False)
 
-        self.downsample = 16
+        self.downsample = 8
         self.camC = 64
         self.frustum = self.create_frustum()
         self.D, _, _, _ = self.frustum.shape
