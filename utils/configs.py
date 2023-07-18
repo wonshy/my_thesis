@@ -95,14 +95,12 @@ def config(args):
 
 ##################256x384######################################
 
-        # 'resize_lim': (0.192, 0.211),
-        # 'final_dim': (256, 384),
-
-
+        'resize_lim': (0.192, 0.211),
+        'final_dim': (256, 384),
 ##################128x192######################################
 
-        'resize_lim': (0.092, 0.108),
-        'final_dim': (128, 192),#good
+        # 'resize_lim': (0.092, 0.108),
+        # 'final_dim': (128, 192),#good
 
 
 
@@ -252,8 +250,10 @@ def config(args):
     if args.evaluate_flops or args.evaluate_fps:
         args.batch_size = 1
     else:
-        args.batch_size = 20 
+        #b3 -> 5, b0 -> 9
+        args.batch_size = 5 
     
+
     args.nworkers = args.batch_size
 
     args.bsz = args.batch_size
