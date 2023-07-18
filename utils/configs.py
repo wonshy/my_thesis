@@ -225,10 +225,10 @@ def config(args):
 ############################################################################
 
     args.xbound = [-14.0, 14.0, 0.25]#56
-    args.ybound = [-0.5, 103.5, 0.5] #52   104
+    args.ybound = [-1.0, args.top_view_region[0, 1].astype(float), 0.5] #52   104
 
     args.zbound = [-10.0, 10.0, 20.0]
-    args.dbound = [2.0, 103.0, 1]
+    args.dbound = [2.0, args.top_view_region[0, 1].astype(float), 1.0]
 ############################################################################
 
 
@@ -251,7 +251,7 @@ def config(args):
         args.batch_size = 1
     else:
         #b3 -> 5, b0 -> 9
-        args.batch_size = 5 
+        args.batch_size = 5
     
 
     args.nworkers = args.batch_size
