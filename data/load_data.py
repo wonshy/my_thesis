@@ -209,30 +209,30 @@ class lane_dataset(Dataset):
 
         self.fix_cam = False
 
-        self.cam_R = []
-        #camera 0
-        self.cam_R.append(np.array([[0, 0, 1],
-                               [-1, 0, 0],
-                               [0, -1, 0]], dtype=float))
-        #camera 1
-        self.cam_R.append(np.linalg.inv(np.array([[0, -np.cos(np.pi / 4), np.sin(np.pi / 4)  ],
-                                             [0, -np.sin(np.pi / 4), -np.cos(np.pi / 4) ],
-                                             [1, 0                 , 0                  ]], dtype=float)))
+        # self.cam_R = []
+        # #camera 0
+        # self.cam_R.append(np.array([[0, 0, 1],
+        #                        [-1, 0, 0],
+        #                        [0, -1, 0]], dtype=float))
+        # #camera 1
+        # self.cam_R.append(np.linalg.inv(np.array([[0, -np.cos(np.pi / 4), np.sin(np.pi / 4)  ],
+        #                                      [0, -np.sin(np.pi / 4), -np.cos(np.pi / 4) ],
+        #                                      [1, 0                 , 0                  ]], dtype=float)))
 
-        #camera 2
-        self.cam_R.append(np.linalg.inv(np.array([[-1, 0               , 0                  ],
-                                             [0, np.sin(np.pi / 4), np.cos(np.pi / 4)  ],
-                                             [0, np.cos(np.pi / 4), -np.sin(np.pi / 4) ]], dtype=float)))
+        # #camera 2
+        # self.cam_R.append(np.linalg.inv(np.array([[-1, 0               , 0                  ],
+        #                                      [0, np.sin(np.pi / 4), np.cos(np.pi / 4)  ],
+        #                                      [0, np.cos(np.pi / 4), -np.sin(np.pi / 4) ]], dtype=float)))
         
-        #camera 3
-        self.cam_R.append(np.linalg.inv(np.array([[-1, 0, 0],
-                                             [0, 0, -1],
-                                             [0, -1, 0]], dtype=float)))
+        # #camera 3
+        # self.cam_R.append(np.linalg.inv(np.array([[-1, 0, 0],
+        #                                      [0, 0, -1],
+        #                                      [0, -1, 0]], dtype=float)))
 
-        #camera 4
-        self.cam_R.append(np.linalg.inv(np.array([[-1, 0, 0],
-                                             [0,  0, 1],
-                                             [0,  1, 0]], dtype=float)))
+        # #camera 4
+        # self.cam_R.append(np.linalg.inv(np.array([[-1, 0, 0],
+        #                                      [0,  0, 1],
+        #                                      [0,  1, 0]], dtype=float)))
 
 
 
@@ -507,17 +507,18 @@ class lane_dataset(Dataset):
         R_vg = np.array([[0, 1, 0],
                             [-1, 0, 0],
                             [0, 0, 1]], dtype=float)
-        # R_gc = np.array([[1, 0, 0],
-        #                     [0, 0, 1],
-        #                     [0, -1, 0]], dtype=float)
+        R_gc = np.array([[1, 0, 0],
+                            [0, 0, 1],
+                            [0, -1, 0]], dtype=float)
 
-        extrinsic[:3, :3] = np.matmul(
-                                    np.matmul(np.linalg.inv(R_vg), extrinsic[:3, :3]),
-                                        self.cam_R[cam_num])
+        extrinsic[:3, :3] = np.matmul(np.matmul(
+            np.matmul(np.linalg.inv(R_vg), extrinsic[:3, :3]),
+            R_vg), R_gc)
+
+        # extrinsic[:3, :3] = np.matmul(
+        #                             np.matmul(np.linalg.inv(R_vg), extrinsic[:3, :3]),
+        #                                 self.cam_R[cam_num])
         
-        # extrinsic[:3, :3] = np.matmul(np.matmul(
-        #     np.matmul(np.linalg.inv(R_vg), extrinsic[:3, :3]),
-        #     R_vg), R_gc)
 
 
         #Translate  camera coordinate to 3D-LanNet vehicle coordinate
