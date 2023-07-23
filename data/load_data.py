@@ -190,6 +190,11 @@ class lane_dataset(Dataset):
 
         # dataset parameters
         self.camera_nums = args.camera_nums
+
+        self.main_cam_exist ='CAM_FRONT' in self.data_aug_conf['cams_sel']
+        self.extend_cams=[  self.data_aug_conf['cams'][cam_pos] for cam_pos in self.data_aug_conf['cams_sel'] if self.data_aug_conf['cams'][cam_pos] > 0 ]
+
+
         # self.h_org = args.org_h
         # self.w_org = args.org_w
         # self.h_crop = args.crop_y
@@ -313,7 +318,7 @@ class lane_dataset(Dataset):
         gt_lanes, gt_vis_inds, gt_category_3d, \
         _laneline_ass_id = self.preprocess_data_from_json_openlane(idx_json_file)
 
-        image, images, all_extrinsics, all_intrinsics, all_rots, all_trans, all_post_rots, all_post_trans=self.image_data_get(
+        images, all_extrinsics, all_intrinsics, all_rots, all_trans, all_post_rots, all_post_trans=self.image_data_get(
             idx_json_file, img_name, front_extrinsic, intrinsics, extrinsics)
 
 
@@ -337,11 +342,7 @@ class lane_dataset(Dataset):
             gt_anchor[ass_id, 0, self.anchor_dim - self.num_category] = 0.0
             gt_anchor[ass_id, 0, self.anchor_dim - self.num_category + gt_category_3d[i]] = 1.0
 
-        # if self.is_data_aug:
-        #     img_rot, aug_mat = data_aug_rotate(image)
-        #     image = Image.fromarray(img_rot)
-        # image = self.totensor(image).float()
-        image = self.normalize(image)
+
         gt_anchor = gt_anchor.reshape([self.anchor_num, -1])
         gt_anchor = torch.from_numpy(gt_anchor)
         intrinsics = torch.from_numpy(intrinsics)
@@ -351,7 +352,7 @@ class lane_dataset(Dataset):
         trans = extrinsics[0:3, 3]
         rots = extrinsics[0:3, 0:3]
         #TODO, change image shape, add camera nums = 1
-        image = torch.unsqueeze(image, 0)
+        # image = torch.unsqueeze(image, 0)
         intrinsics = torch.unsqueeze(intrinsics, 0)
         extrinsics = torch.unsqueeze(extrinsics, 0)
         trans = torch.unsqueeze(trans, 0)
@@ -360,8 +361,8 @@ class lane_dataset(Dataset):
         if self.is_data_aug:
             # aug_mat = torch.from_numpy(aug_mat.astype(np.float32))
             aug_mat=0
-            return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, aug_mat, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans,all_post_rots, all_post_trans
-        return idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans, all_post_rots, all_post_trans
+            return idx_json_file, gt_anchor, idx, intrinsics, extrinsics, aug_mat, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans,all_post_rots, all_post_trans
+        return idx_json_file, gt_anchor, idx, intrinsics, extrinsics, rots,trans, images, all_intrinsics, all_extrinsics,all_rots, all_trans, all_post_rots, all_post_trans
 
     # old getitem, workable
     def __getitem__(self, idx):
@@ -683,50 +684,42 @@ class lane_dataset(Dataset):
         all_post_trans = []
 
         #base
-        main_image=''
-        with open(main_image_path, 'rb') as f:
-            main_image = (Image.open(f).convert('RGB'))
+        # main_image=''
 
-            post_rot = torch.eye(2)
-            post_tran = torch.zeros(2)
-            resize, resize_dims, crop, flip, rotate = self.sample_augmentation(0)
-            main_image, post_rot2, post_tran2 = img_transform(main_image, post_rot, post_tran,
-                        resize, resize_dims, crop,
-                        flip, rotate)
-            
-            # for convenience, make augmentation matrices 3x3
-            post_tran = torch.zeros(3)
-            post_rot = torch.eye(3)
-            post_tran[:2] = post_tran2
-            post_rot[:2, :2] = post_rot2
+        if self.main_cam_exist:
+            with open(main_image_path, 'rb') as f:
+                main_image = (Image.open(f).convert('RGB'))
 
-            all_post_rots.append(post_rot)
-            all_post_trans.append(post_tran)
+                post_rot = torch.eye(2)
+                post_tran = torch.zeros(2)
+                resize, resize_dims, crop, flip, rotate = self.sample_augmentation(0)
+                main_image, post_rot2, post_tran2 = img_transform(main_image, post_rot, post_tran,
+                            resize, resize_dims, crop,
+                            flip, rotate)
+                
+                # for convenience, make augmentation matrices 3x3
+                post_tran = torch.zeros(3)
+                post_rot = torch.eye(3)
+                post_tran[:2] = post_tran2
+                post_rot[:2, :2] = post_rot2
 
-
-            # #数据增强可以在这里完成
-            # # image preprocess with crop and resize
-            # main_image = F.crop(main_image, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
-            # main_image = F.resize(main_image, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
-           
-           
-            images.append(self.normalize(main_image)) #注意这里图像数据没有转换成tensor
+                all_post_rots.append(post_rot)
+                all_post_trans.append(post_tran)
+                images.append(self.normalize(main_image)) 
 
 
-        main_instrinsic=torch.Tensor(main_instrinsic)
-        main_extrinsic= torch.Tensor(main_extrinsic)
-        all_intrinsics.append(main_instrinsic)
-        all_extrinsics.append(main_extrinsic)
+            main_instrinsic=torch.Tensor(main_instrinsic)
+            main_extrinsic= torch.Tensor(main_extrinsic)
+            all_intrinsics.append(main_instrinsic)
+            all_extrinsics.append(main_extrinsic)
 
-        trans = main_extrinsic[0:3, 3]
-        rots = main_extrinsic[0:3, 0:3]
-        all_trans.append(trans)
-        all_rots.append(rots)
+            trans = main_extrinsic[0:3, 3]
+            rots = main_extrinsic[0:3, 0:3]
+            all_trans.append(trans)
+            all_rots.append(rots)
 
         # print("camera numbers: {:d}".format(self.camera_nums))
-
-        for extend_num in range(1, self.camera_nums):
-            #extend label 
+        for extend_num in self.extend_cams:            #extend label 
             extend_label_file = self.get_extend_file(self.extend_json_file_path ,extend_num, label_file)
 
             #extennd image
@@ -772,19 +765,11 @@ class lane_dataset(Dataset):
 
                     all_post_rots.append(post_rot)
                     all_post_trans.append(post_tran)
-
-                    # #数据增强可以在这里完成
-                    # # image preprocess with crop and resize
-                    # img = F.crop(img, self.h_crop, 0, self.h_org - self.h_crop, self.w_org)
-                    # img = F.resize(img, size=(self.h_net, self.w_net), interpolation=InterpolationMode.BILINEAR)
-
                     images.append(self.normalize(img)) #注意这里图像数据没有转换成tensor
     
-        return (main_image, torch.stack(images), torch.stack(all_extrinsics), 
+        return (torch.stack(images), torch.stack(all_extrinsics), 
                 torch.stack(all_intrinsics), torch.stack(all_rots), torch.stack(all_trans) , 
                 torch.stack(all_post_rots), torch.stack(all_post_trans))
-
-
 
 
 

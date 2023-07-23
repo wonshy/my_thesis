@@ -519,7 +519,7 @@ class Runner:
             # compute timing
             end = time.time()
             for i, (
-                    idx_json_file, image, gt_anchor, idx, intrinsics, extrinsics, aug_mat,
+                    idx_json_file, gt_anchor, idx, intrinsics, extrinsics, aug_mat,
                     rots, trans, images, all_intrinsics, all_extrinsics,
                     all_rots, all_trans,all_post_rots, all_post_trans
             ) in tqdm(enumerate(train_loader)):
@@ -528,7 +528,7 @@ class Runner:
 
                 # Put data on gpu if possible
                 if not args.no_cuda:
-                    image, gt_anchor = image.cuda(non_blocking=True), gt_anchor.cuda(non_blocking=True)
+                    images, gt_anchor = images.cuda(non_blocking=True), gt_anchor.cuda(non_blocking=True)
                     intrinsics = intrinsics.cuda()
                     intrinsics = intrinsics.cuda()
                     rots = rots.cuda()
@@ -538,7 +538,7 @@ class Runner:
                     all_trans = all_trans.cuda()
                     all_intrinsics = all_intrinsics.cuda()
 
-                image = image.contiguous().float()
+                images = images.contiguous().float()
                 # # Run model
                 optimizer.zero_grad()
 
@@ -563,7 +563,7 @@ class Runner:
                 #这里重点查看
                 # reduce loss from all gpu, then update losses
                 loss_list = [losses, losses_3d_vis, losses_3d_prob, losses_3d_reg]
-                loss_list = self.reduce_all_loss(args, loss_list, loss, loss_3d_dict, image.size(0))
+                loss_list = self.reduce_all_loss(args, loss_list, loss, loss_3d_dict, images.size(0))
 
                 # Time trainig iteration
                 batch_time.update(time.time() - end)
@@ -753,14 +753,14 @@ class Runner:
         with torch.no_grad():
 
             for i, (
-                    json_files, image, gt_anchor, idx, intrinsics, extrinsics,
+                    json_files, gt_anchor, idx, intrinsics, extrinsics,
                     rots, trans, images, all_intrinsics, all_extrinsics, 
                     all_rots, all_trans,all_post_rots, all_post_trans
             ) in tqdm(enumerate(loader)):
             
                 if not args.no_cuda:
-                    image, gt_anchor = image.cuda(non_blocking=True), gt_anchor.cuda(non_blocking=True)
-                    gt_intrinsic = intrinsics.cuda()
+                    images, gt_anchor = images.cuda(non_blocking=True), gt_anchor.cuda(non_blocking=True)
+                    # gt_intrinsic = intrinsics.cuda()
                     extrinsics = extrinsics.cuda()
                     rots = rots.cuda()
                     trans = trans.cuda()
@@ -768,7 +768,7 @@ class Runner:
                     all_trans = all_trans.cuda()
                     all_intrinsics = all_intrinsics.cuda()
 
-                image = image.contiguous().float()
+                images = images.contiguous().float()
 
                 if args.evaluate_fps:
                     torch.cuda.synchronize()
@@ -807,11 +807,11 @@ class Runner:
                 # losses += loss
 
 
-                # print(loss)
+                # print(image.size(0))
 
                 # reduce loss from all gpu, then update losses
                 loss_list = [losses, losses_3d_vis, losses_3d_prob, losses_3d_reg]
-                loss_list = self.reduce_all_loss(args, loss_list, loss, loss_3d_dict, image.size(0))
+                loss_list = self.reduce_all_loss(args, loss_list, loss, loss_3d_dict, images.size(0))
 
                 # Print info
                 if (i + 1) % args.print_freq == 0 and args.proc_id == 0:
@@ -829,7 +829,7 @@ class Runner:
                 gt_anchor = gt_anchor.data.cpu().numpy()
 
                 # unormalize lane outputs, 这里为啥使用标准差去乘以每个数？
-                num_el = image.size(0)
+                num_el = images.size(0)
                 for j in range(num_el):
                     unormalize_lane_anchor(preds[j], dataset)
                     unormalize_lane_anchor(gt_anchor[j], dataset)

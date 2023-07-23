@@ -119,9 +119,9 @@ def config(args):
         # img =  (crop_w, crop_h, crop_w + final_dim_W, crop_h + final_dim_H)
         # 最终的结果是，越大的裁剪的越多， 填补的也越多
 
-        'cams': ['CAM_FRONT', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT',
-                    'CAM_LEFT', 'CAM_RIGHT'],
-        'Ncams': 5,
+        'cams': {'CAM_FRONT':0, 'CAM_FRONT_LEFT':1, 'CAM_FRONT_RIGHT':2,
+                    'CAM_LEFT':3, 'CAM_RIGHT':4},
+        'cams_sel': ['CAM_FRONT','CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT', 'CAM_LEFT','CAM_RIGHT' ],
     }
 
 
