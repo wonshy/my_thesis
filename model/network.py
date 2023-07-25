@@ -39,8 +39,8 @@ class CamEncode(nn.Module):
         self.ref_resolution_layer = torch.log2(torch.tensor(self.downsample)).int()
 
 
-        # self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
-        # self.up1 = Up(320+112, 512) #b0 x16
+        self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
+        self.up1 = Up(320+112, 512) #b0 x16
         # self.up1 = Up(320+40, 512, scale_factor=32/self.downsample) #b0 x8
 
 
@@ -63,8 +63,8 @@ class CamEncode(nn.Module):
         # self.up1 = Up(512+176, 512) #b5 x 16
 
 
-        self.trunk = EfficientNet.from_pretrained("efficientnet-b3")
-        self.up1 = Up(384+136, 512) #b3 x 16
+        # self.trunk = EfficientNet.from_pretrained("efficientnet-b3")
+        # self.up1 = Up(384+136, 512) #b3 x 16
 
 
 

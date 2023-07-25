@@ -95,10 +95,10 @@ def config(args):
 
 ##################256x384######################################
 
-        'resize_lim': (0.192, 0.241),
-        'final_dim': (256, 384),
-        'rot_lim': (-5.4, 5.4),
-        'bot_pct_lim': (0.0, 0.11),
+        # 'resize_lim': (0.192, 0.241),
+        # 'final_dim': (256, 384),
+        # 'rot_lim': (-5.4, 5.4),
+        # 'bot_pct_lim': (0.0, 0.11),
 
 ##################128x192######################################
 
@@ -106,6 +106,15 @@ def config(args):
         # 'final_dim': (128, 192),#good
         #'rot_lim': (-5.4, 5.4),
         #'bot_pct_lim': (0.0, 0.22),
+
+
+##################640x480######################################
+
+        'resize_lim': (0.341, 0.374),
+        'final_dim': (480, 640),
+        'rot_lim': (-5.4, 5.4),
+        'bot_pct_lim': (0.0, 0.11),
+
 
 
         'FRONT_H': 1280, 'FRONT_W': 1920,
@@ -122,6 +131,8 @@ def config(args):
         'cams': {'CAM_FRONT':0, 'CAM_FRONT_LEFT':1, 'CAM_FRONT_RIGHT':2,
                     'CAM_LEFT':3, 'CAM_RIGHT':4},
         'cams_sel': ['CAM_FRONT','CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT', 'CAM_LEFT','CAM_RIGHT' ],
+        # 'cams_sel': ['CAM_FRONT' ],
+
     }
 
 
@@ -251,7 +262,7 @@ def config(args):
         args.batch_size = 1
     else:
         #b3 -> 4, b0 -> 9
-        args.batch_size = 4
+        args.batch_size = 3
     
 
     args.nworkers = args.batch_size
