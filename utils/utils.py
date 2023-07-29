@@ -299,8 +299,8 @@ class Runner:
 
     def _get_train_dataset(self):
         args = self.args
-        train_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'training/', 
-                    args.extend_dataset_dir, args.extend_data_dir + 'training/',
+        train_dataset = lane_dataset(args.dataset_dir, args.data_dir + '/training/', 
+                    args.extend_dataset_dir, args.extend_data_dir + '/training/',
                     args, args.data_aug_conf, is_data_aug=True, save_std=True)
 
         # TODO:GPU need?
@@ -315,8 +315,8 @@ class Runner:
 
         args = self.args
 
-        valid_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'validation/',
-                    args.extend_dataset_dir, args.extend_data_dir + 'validation/', args, args.data_aug_conf)
+        valid_dataset = lane_dataset(args.dataset_dir, args.data_dir + '/validation/',
+                    args.extend_dataset_dir, args.extend_data_dir + '/validation/', args, args.data_aug_conf)
 
         # assign std of valid dataset to be consistent with train dataset
         valid_dataset.set_x_off_std(self.train_dataset._x_off_std)
@@ -330,8 +330,8 @@ class Runner:
 
         args = self.args
 
-        test_dataset = lane_dataset(args.dataset_dir, args.data_dir + 'test/' + test_case +'/',
-                        args.extend_dataset_dir, args.extend_data_dir + 'validation/', args, args.data_aug_conf)
+        test_dataset = lane_dataset(args.dataset_dir, args.data_dir + '/test/' + test_case +'/',
+                        args.extend_dataset_dir, args.extend_data_dir + '/validation/', args, args.data_aug_conf)
 
         # assign std of test dataset to be consistent with train dataset
         test_dataset.set_x_off_std(self.train_dataset._x_off_std)

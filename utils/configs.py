@@ -6,7 +6,6 @@ import numpy as np
 
 def config(args):
 
-    args.use_slurm = False
     
     
     
@@ -22,21 +21,31 @@ def config(args):
     # learnable weight
     # in best model setting, they are 10, 4, 1
     # factor = 1 / exp(weight)
-    args.learnable_weight_on = True
-    args._3d_vis_loss_weight = 0.0  # -2.3026
-    args._3d_prob_loss_weight = 0.0  # -1.3863
-    args._3d_reg_loss_weight = 0.0
+    # args.learnable_weight_on = True
+    # args._3d_vis_loss_weight = 0.0  # -2.3026
+    # args._3d_prob_loss_weight = 0.0  # -1.3863
+    # args._3d_reg_loss_weight = 0.0
 
     # 300 sequence
     args.dataset_name = 'openlane'
 
+
+    dataset_part = 'lane3d_300'
     # dataset path
     root_path = os.path.abspath(os.path.join(os.getcwd(), ".."))
     dataset_path = os.path.join(root_path, "openlane")
+    extend_path=ops.join(dataset_path, 'extend')
+
+
     args.dataset_dir = ops.join(dataset_path, 'images/')
-    args.data_dir = ops.join(dataset_path, 'lane3d_1000/')
-    args.extend_dataset_dir = ops.join(dataset_path, 'extend/images/')
-    args.extend_data_dir = ops.join(dataset_path, 'extend/lane3d_1000/')
+    args.data_dir = ops.join(dataset_path, dataset_part)
+
+    args.extend_dataset_dir = ops.join(extend_path, 'images/')
+    args.extend_data_dir = ops.join(extend_path, dataset_part)
+
+
+    # args.extend_dataset_dir = ops.join(dataset_path, 'extend/images/')
+    # args.extend_data_dir = ops.join(dataset_path, 'extend/lane3d_1000/')
 
     # sav path
     args.save_prefix = ops.join(os.getcwd(), 'data_splits')
@@ -53,7 +62,7 @@ def config(args):
 
     # settings for save and visualize
     args.print_freq = 50
-    args.save_freq = 50
+    # args.save_freq = 50
 
     args.save_json_path = "data_splits/"
 
@@ -137,12 +146,6 @@ def config(args):
 
 
 
-
-
-
-
-
-
     # origh .
     args.org_h = 1280
     args.H = args.org_h
@@ -164,16 +167,16 @@ def config(args):
     # args.ipm_h = 208
     args.ipm_w = 128
 
-    args.crop_y = 0
+    # args.crop_y = 0
     args.no_centerline = True
     args.no_3d = False
     args.fix_cam = False
     args.pred_cam = False
 
-    # Placeholder, shouldn't be used
-    args.K = np.array([[1000., 0., 960.],
-                        [0., 1000., 640.],
-                        [0., 0., 1.]])
+    # # Placeholder, shouldn't be used
+    # args.K = np.array([[1000., 0., 960.],
+    #                     [0., 1000., 640.],
+    #                     [0., 0., 1.]])
 
     # ddp related
     args.dist = True 
@@ -194,9 +197,9 @@ def config(args):
 
     args.use_default_anchor = False
 
-    args.max_grad_norm = 5.0
-    args.pos_weight = 2.13
-    args.logdir = './runs'
+    # args.max_grad_norm = 5.0
+    # args.pos_weight = 2.13
+    # args.logdir = './runs'
 
     # args.xbound = [-50.0, 50.0, 0.5]
     # args.ybound = [-50.0, 50.0, 0.5]
@@ -237,6 +240,9 @@ def config(args):
 
     args.xbound = [-14.0, 14.0, 0.25]#56
     args.ybound = [-1.0, args.top_view_region[0, 1].astype(float), 0.5] #52   104
+    args.ybound = [3.0, 107.0, 0.5] #52   104
+
+
 
     args.zbound = [-10.0, 10.0, 20.0]
     args.dbound = [2.0, args.top_view_region[0, 1].astype(float), 1.0]
@@ -262,16 +268,16 @@ def config(args):
         args.batch_size = 1
     else:
         #b3 -> 4, b0 -> 9
-        args.batch_size = 3
+        #args.batch_size = 3
+        args.batch_size = 2
+
     
 
     args.nworkers = args.batch_size
 
-    args.bsz = args.batch_size
+    # args.bsz = args.batch_size
 
-
-    args.lr = 1e-3
-    args.weight_decay = 1e-7
+    # args.lr = 1e-3
+    # args.weight_decay = 1e-7
 
     args.world_size = 4
-    #args.nworkers = 4
