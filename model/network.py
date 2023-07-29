@@ -5,6 +5,8 @@ import numpy as np
 from efficientnet_pytorch import EfficientNet
 from data.tools import gen_dx_bx, cumsum_trick, QuickCumsum
 
+import torch.nn.functional as F
+
 
 class Up(nn.Module):
     def __init__(self, in_channels, out_channels, scale_factor=2):
@@ -116,6 +118,8 @@ class CamEncode(nn.Module):
         return x
 
 
+
+
 ##### normal
 
 # class BevEncode(nn.Module):
@@ -223,10 +227,10 @@ class Deformable_conv(nn.Module):
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, inC, stride=1):
+    def __init__(self, inC, outC, stride=1):
         super(ResidualBlock, self).__init__()
         in_channels=inC
-        out_channels=inC
+        out_channels=outC
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
@@ -259,10 +263,171 @@ class ResidualBlock(nn.Module):
         
         return out
 
+# one block: Conv2d + (BN) + ReLu
+def make_one_layer(in_channels, out_channels, kernel_size=3, padding=1, stride=1, batch_norm=False, inplace=True):
+    conv2d = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
+    if batch_norm:
+        layers = [conv2d, nn.BatchNorm2d(out_channels), nn.ReLU(inplace)]
+    else:
+        layers = [conv2d, nn.ReLU(inplace)]
+    return layers
+
+# modified from: https://github.com/open-mmlab/mmdetection/blob/master/mmdet/models/necks/fpn.py
+
+class FPN(nn.Module):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 num_outs,
+                 start_level=0,
+                 end_level=-1,
+                 add_extra_convs=False,
+                 extra_convs_on_inputs=True,
+                 relu_before_extra_convs=False,
+                 no_norm_on_lateral=False):
+        super(FPN, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.num_ins = len(in_channels)
+        self.num_outs = num_outs
+        self.relu_before_extra_convs = relu_before_extra_convs
+        self.no_norm_on_lateral = no_norm_on_lateral
+
+        if end_level == -1:
+            self.backbone_end_level = self.num_ins
+            assert num_outs >= self.num_ins - start_level
+        else:
+            # if end_level  < inputs, no etra level is allowed
+            self.backbone_end_level = end_level
+            assert end_level <= len(in_channels)
+            assert num_outs == end_level - start_level
+        self.start_level = start_level
+        self.end_level = end_level
+        self.add_extra_convs = add_extra_convs
+        self.extra_convs_on_inputs = extra_convs_on_inputs
+
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear',
+                    align_corners=True)
+
+        self.lateral_convs = nn.ModuleList()
+        self.fpn_convs = nn.ModuleList()
+
+        for i in range(self.start_level, self.backbone_end_level):
+            l_conv = make_one_layer(in_channels[i],
+                                    out_channels,
+                                    kernel_size=1,
+                                    padding=0,
+                                    batch_norm=True if not self.no_norm_on_lateral else False,
+                                    inplace=False)
+            fpn_conv = make_one_layer(out_channels,
+                                      out_channels,
+                                      batch_norm=True,
+                                      inplace=False)
+            self.lateral_convs.append(nn.Sequential(*l_conv))
+            self.fpn_convs.append(nn.Sequential(*fpn_conv))
+        
+        # add extra conv layers (e.g., RetinaNet)
+        extra_levels = num_outs - self.backbone_end_level + self.start_level
+        if add_extra_convs and extra_levels >= 1:
+            for i in range(extra_levels):
+                if i == 0 and self.extra_convs_on_inputs:
+                    in_channels = self.in_channels[self.backbone_end_level - 1]
+                else:
+                    in_channels = out_channels
+                extra_fpn_conv = make_one_layer(in_channels,
+                                                out_channels,
+                                                kernel_size=3,
+                                                stride=2,
+                                                padding=1,
+                                                batch_norm=True,
+                                                inplace=False)
+                self.fpn_convs.append(nn.Sequential(*extra_fpn_conv))
+    
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    nn.init.xavier_uniform_(m.weight, gain=1)
+                if hasattr(m, 'bias') and m.bias is not None:
+                    nn.init.constant_(m.bias, val=0)
+
+    def forward(self, inputs):
+        assert len(inputs) == len(self.in_channels)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                # print("Max weight in fpn convs: ", torch.max(torch.abs(m.weight)))
+                if m.weight.grad != None:
+                    pass
+                    # print("Max weight grad in fpn convs: ", torch.max(torch.abs(m.weight.grad)))
+
+        # build laterals
+        laterals = [lateral_conv(inputs[i + self.start_level])
+                    for i, lateral_conv in enumerate(self.lateral_convs)]
+        
+        # build top-down path
+        used_backbone_levels = len(laterals)
+        for i in range(used_backbone_levels - 1, 0, -1):
+            # laterals[i - 1] += self.up(laterals[i])
+            prev_shape = laterals[i - 1].shape[2:]
+            laterals[i - 1] = laterals[i - 1]  + F.interpolate(laterals[i], size=prev_shape, mode='nearest')
+        
+        # build outputs
+        # part 1: from original levels
+        outs = [self.fpn_convs[i](laterals[i]) for i in range(used_backbone_levels)]
+
+        # part 2: add extra levels
+        if self.num_outs > len(outs):
+            # use max pool to get more levels on top of outputs
+            # (e.g., Faster R-CNN, Mask R-CNN)
+            if not self.add_extra_convs:
+                for i in range(self.num_outs - used_backbone_levels):
+                    outs.append(F.max_pool2d(outs[-1], 1, stride=2))
+            # add conv layers on top of original feature maps (RetinaNet)
+            else:
+                if self.extra_convs_on_inputs:
+                    orig = inputs[self.backbone_end_level - 1]
+                    outs.append(self.fpn_convs[used_backbone_levels](orig))
+                else:
+                    outs.append(self.fpn_convs[used_backbone_levels](outs[-1]))
+                for i in range(used_backbone_levels + 1, self.num_outs):
+                    if self.relu_before_extra_convs:
+                        outs.append(self.fpn_convs[i](F.relu(outs[-1])))
+                    else:
+                        outs.append(self.fpn_convs[i](outs[-1]))
+        
+        return outs
 
 
 
+class BevEncode(nn.Module):
+    def __init__(self, inC):
+        super(BevEncode, self).__init__()
 
+        in_channels=[inC, inC*2, inC*4, inC*8]
+        self.fpn = FPN(in_channels, inC, num_outs= len(in_channels))
+
+
+        self.layer1=ResidualBlock(inC=inC, outC=inC*2, stride=2)
+        self.layer2=ResidualBlock(inC=inC*2, outC=inC*4, stride=2)
+        self.layer3=ResidualBlock(inC=inC*4, outC=inC*8, stride=2)
+
+
+    # def _make_layer(self,planes, num_blocks, stride):
+    #     strides = [stride] + [1]*(num_blocks-1)
+    #     layers = []
+    #     for stride in strides:
+    #         layers.append(ResidualBlock(self.in_planes, planes, stride))
+    #         self.in_planes = planes * 4
+    #     return nn.Sequential(*layers)
+
+    
+    def forward(self, x):
+        layer1= self.layer1(x)
+        layer2= self.layer2(layer1)
+        layer3= self.layer3(layer2)
+        x = self.fpn([x, layer1, layer2, layer3])
+        return x[0]
 
 
 
@@ -342,9 +507,9 @@ class LiftSplatShoot(nn.Module):
         self.frustum = self.create_frustum()
         self.D, _, _, _ = self.frustum.shape
         self.camencode = CamEncode(self.D, self.camC, self.downsample)
-        # self.bevencode = BevEncode(inC=self.camC)
+        self.bevencode = BevEncode(inC=self.camC)
 
-        #self.bevencode = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
+        # self.dfc_3_all = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
         # self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
         self.dfc3_2 = Deformable_conv(inC=self.camC)
         # self.dfc = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(1,1),kernel_size=3)
@@ -490,10 +655,16 @@ class LiftSplatShoot(nn.Module):
     def forward(self, x, rots, trans, intrins, post_rots, post_trans):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
         # x = self.bevencode(x)
-        #x = self.bevencode(x)
+        x = self.bevencode(x)
         x = self.dfc3_2(x)
         x = self.dfc3_2(x)
         x = self.dfc3_2(x)
+
+        # x= self.dfc_3_all(x)
+        # x= self.dfc_3_all(x)
+        # x= self.dfc_3_all(x)
+
+        # x = self.bevencode(x)
 
         # x = self.dfc(x)
         # x = self.dfc5_2(x)
@@ -523,14 +694,7 @@ def compile_model(grid_conf, data_aug_conf, num_lane_type, num_y_steps, num_cate
 
 
 
-# one block: Conv2d + (BN) + ReLu
-def make_one_layer(in_channels, out_channels, kernel_size=3, padding=1, stride=1, batch_norm=False, inplace=True):
-    conv2d = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
-    if batch_norm:
-        layers = [conv2d, nn.BatchNorm2d(out_channels), nn.ReLU(inplace)]
-    else:
-        layers = [conv2d, nn.ReLU(inplace)]
-    return layers
+
 
 #we need loss0 , loss1 , loss2, pred_cam=False
 class Laneline_loss_gflat_multiclass(nn.Module):
