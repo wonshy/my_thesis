@@ -121,7 +121,7 @@ def nms_bev(batch_output_net, args):
             visible_yid = np.where(output_anchor[2 * args.num_y_steps: 3 * args.num_y_steps] > args.prob_th)[0]
             # print("vis points: ", len(visible_yid))
 
-            #如果可见点的数量少于2，或者最大值的导引号等于category 第1个点则忽略( 为啥category第一个导引点就不能为最大的呢？)。
+            #如果可见点的数量少于2，max Category( left/right are curbside) is ignore. 。
             if np.argmax(output_anchor[anchor_dim - args.num_category:]) == \
                     anchor_dim - args.num_category or len(visible_yid) < 2:
                 # print("skip")
@@ -130,7 +130,7 @@ def nms_bev(batch_output_net, args):
             #存入需要nms的有效anchor
             pre_nms_valid_anchor_id.append(j)
 
-            # 筛选出来最大值，并将其填入到scores
+            # 筛选出来最大值，并将其填入到scores,  please note 0( unknow category will be ignore) 
             #add numpy transe.    every anchor scores.
             scores[valid_count] = np.max(output_anchor[anchor_dim - args.num_category + 1:]).item()
 
