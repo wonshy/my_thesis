@@ -190,7 +190,7 @@ def define_args():
     parser.add_argument('--save_path', type=str, default='data_splits/', help='directory to save output')
     
     # General model settings
-    parser.add_argument('--camera_nums', type=int, default=5, help='numbers of cameras')
+    parser.add_argument('--random_cam', action='store_true', help='random extend camera on training')
     parser.add_argument('--evaluate', action='store_true', help='only perform evaluation')
     parser.add_argument('--evaluate_flops', action='store_true', help='evluate model flops')
     parser.add_argument('--evaluate_fps', action='store_true', help='evluate model fps')
@@ -309,7 +309,7 @@ class Runner:
         # return train_dataset, train_loader, train_sampler
 
         # train_dataset.normalize_lane_label()
-        train_loader, data_sampler = get_loader(train_dataset, args)
+        train_loader, data_sampler = get_loader(train_dataset, True, args)
         return train_dataset, train_loader, data_sampler
     def _get_valid_dataset(self):
 
@@ -322,7 +322,7 @@ class Runner:
         valid_dataset.set_x_off_std(self.train_dataset._x_off_std)
         valid_dataset.set_z_std(self.train_dataset._z_std)
         # valid_dataset.normalize_lane_label()
-        valid_loader, valid_sampler = get_loader(valid_dataset, args)
+        valid_loader, valid_sampler = get_loader(valid_dataset, False, args)
 
         return valid_dataset, valid_loader, valid_sampler
 
@@ -575,7 +575,6 @@ class Runner:
                         'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                         'Loss {loss.val:.8f} ({loss.avg:.8f})'.format(epoch+1, i+1, len(train_loader), 
                                             batch_time=batch_time, data_time=data_time, loss=loss_list[0]))
-
 
             # Adjust learning rate
             scheduler.step()

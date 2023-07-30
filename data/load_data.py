@@ -20,6 +20,11 @@ import torchvision.transforms.functional as F
 from torchvision.transforms import InterpolationMode
 from scipy.interpolate import UnivariateSpline
 
+
+from functools import partial
+from torch.utils.data.dataloader import default_collate
+
+
 from data.tools import *
 
 sys.path.append('./')
@@ -189,12 +194,11 @@ class lane_dataset(Dataset):
         self.num_category = args.num_category
 
         # dataset parameters
-        self.camera_nums = args.camera_nums
 
         self.main_cam_exist ='CAM_FRONT' in self.data_aug_conf['cams_sel']
         self.extend_cams=[  self.data_aug_conf['cams'][cam_pos] for cam_pos in self.data_aug_conf['cams_sel'] if self.data_aug_conf['cams'][cam_pos] > 0 ]
-
-
+        self.cam_sel = self.extend_cams
+        self.camera_nums = len(self.extend_cams) + 1        
         # self.h_org = args.org_h
         # self.w_org = args.org_w
         # self.h_crop = args.crop_y
@@ -669,6 +673,8 @@ class lane_dataset(Dataset):
             rotate = 0
         return resize, resize_dims, crop, flip, rotate
 
+    def cam_random_select(self):
+        self.cam_sel = np.sort(np.random.choice(self.extend_cams, np.random.choice(np.arange(1, self.camera_nums)), replace=False))
 
 
     def image_data_get(self, label_file, main_image_path,front_extrinsic, main_instrinsic, main_extrinsic):
@@ -719,7 +725,8 @@ class lane_dataset(Dataset):
             all_rots.append(rots)
 
         # print("camera numbers: {:d}".format(self.camera_nums))
-        for extend_num in self.extend_cams:            #extend label 
+        for extend_num in self.cam_sel:            #extend label 
+
             extend_label_file = self.get_extend_file(self.extend_json_file_path ,extend_num, label_file)
 
             #extennd image
@@ -1214,7 +1221,14 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
-def get_loader(transformed_dataset, args):
+
+def my_collate_fn(dataset, batch):
+    dataset.cam_random_select()
+    return default_collate(batch)
+
+
+
+def get_loader(transformed_dataset, train, args):
     # transformed_dataset = LaneDataset(dataset_base_dir, json_file_path, args)
     sample_idx = range(transformed_dataset.n_samples)
 
@@ -1249,14 +1263,25 @@ def get_loader(transformed_dataset, args):
                                      drop_last=True)
         else:
             data_sampler = torch.utils.data.distributed.DistributedSampler(transformed_dataset)
-            data_loader = DataLoader(transformed_dataset,
-                                     batch_size=args.batch_size,
-                                     sampler=data_sampler,
-                                     num_workers=args.nworkers,
-                                     pin_memory=True,
-                                     persistent_workers=True,
-                                     worker_init_fn=seed_worker,
-                                     generator=g)
+            if train and args.random_cam:
+                data_loader = DataLoader(transformed_dataset,
+                                        batch_size=args.batch_size,
+                                        sampler=data_sampler,
+                                        num_workers=args.nworkers,
+                                        pin_memory=True,
+                                        persistent_workers=True,
+                                        collate_fn=partial(my_collate_fn, transformed_dataset),
+                                        worker_init_fn=seed_worker,
+                                        generator=g)
+            else:
+                data_loader = DataLoader(transformed_dataset,
+                        batch_size=args.batch_size,
+                        sampler=data_sampler,
+                        num_workers=args.nworkers,
+                        pin_memory=True,
+                        persistent_workers=True,
+                        worker_init_fn=seed_worker,
+                        generator=g)
     else:
         if args.proc_id == 0:
             print("use default sampler")
