@@ -30,7 +30,7 @@ def config(args):
     args.dataset_name = 'openlane'
 
 
-    dataset_part = 'lane3d_1000'
+    dataset_part = 'lane3d_300'
     # dataset path
     root_path = os.path.abspath(os.path.join(os.getcwd(), ".."))
     dataset_path = os.path.join(root_path, "openlane")
@@ -111,18 +111,18 @@ def config(args):
 
 ##################128x192######################################
 
-        'resize_lim': (0.092, 0.108),
-        'final_dim': (128, 192),#good
-        'rot_lim': (-5.4, 5.4),
-        'bot_pct_lim': (0.0, 0.22),
+        # 'resize_lim': (0.092, 0.108),
+        # 'final_dim': (128, 192),#good
+        #'rot_lim': (-5.4, 5.4),
+        #'bot_pct_lim': (0.0, 0.22),
 
 
 ##################640x480######################################
 
-        # 'resize_lim': (0.341, 0.374),
-        # 'final_dim': (480, 640),
-        # 'rot_lim': (-5.4, 5.4),
-        # 'bot_pct_lim': (0.0, 0.11),
+        'resize_lim': (0.341, 0.374),
+        'final_dim': (480, 640),
+        'rot_lim': (-5.4, 5.4),
+        'bot_pct_lim': (0.0, 0.11),
 
 
 
@@ -238,25 +238,28 @@ def config(args):
 
 ############################################################################
 
-    # args.xbound = [-14.0, 14.0, 0.25]#56
-    # args.ybound = [-1.0, args.top_view_region[0, 1].astype(float), 0.5] #52   104
-
-    # args.xbound = [-14.0, 14.0, 0.03125]#56
-    # args.ybound = [3.0, 107.0, 0.5] #52   104
-
     args.xbound = [-14.0, 14.0, 0.25]#56
+    # args.xbound = [-14.0, 14.0, 0.015625]#56
+
+    
+    # args.ybound = [-1.0, args.top_view_region[0, 1].astype(float), 0.5] #52   104
     args.ybound = [3.0, 107.0, 0.5] #52   104
+
+
 
     args.zbound = [-10.0, 10.0, 20.0]
     args.dbound = [2.0, args.top_view_region[0, 1].astype(float), 1.0]
+    #args.dbound = [3.0, args.top_view_region[0, 1].astype(float), 1.0]
+
+
 ############################################################################
 
 
 
     # optimizer
-    args.optimizer = 'adam'
+    args.optimizer = 'adamw'
     args.learning_rate = 2e-4
-    args.weight_decay = 0.001
+    args.weight_decay = 0.001 #0.01
 
     # grad clip
     args.clip_grad_norm = 35.0
@@ -264,8 +267,8 @@ def config(args):
 
     # scheduler
     args.lr_policy = "cosine"
-    args.T_max = 8
-    args.eta_min = 1e-5
+    args.T_max = 8  #10
+    args.eta_min = 1e-5 #1e-3
 
     if args.evaluate_flops or args.evaluate_fps:
         args.batch_size = 1
