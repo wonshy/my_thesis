@@ -19,8 +19,9 @@
 #
 
 
+#rm -rf .cache
 
-#python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 
+python -m torch.distributed.launch  --nproc_per_node  4  main.py 
 
 
 #echo "========================================5-camera evaluate==========================================================="
@@ -31,7 +32,16 @@
 #    python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --test_case $element --evaluate
 #done
 #
-python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --evaluate --evaluate_fps  --save_lines
+
+
+
+
+#python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --evaluate --evaluate_fps  --save_lines
+
+
+
+
+
 
 
 # python -m torch.distributed.launch  --nproc_per_node  1  main.py --camera_nums=5 --test_case "curve_case" --evaluate --save_lines

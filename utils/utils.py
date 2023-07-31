@@ -292,7 +292,9 @@ class Runner:
 
         # Tensorboard writer
         if not args.no_tb and args.proc_id == 0:
-            tensorboard_path = os.path.join(args.save_path, 'Tensorboard/')
+            #just debug on autodl
+            tensorboard_path =  '/root/tf-logs/'
+            # tensorboard_path = os.path.join(args.save_path, 'Tensorboard/')
             mkdir_if_missing(tensorboard_path)
             self.writer = SummaryWriter(tensorboard_path)
 
@@ -492,6 +494,8 @@ class Runner:
         #     print("Init model: '{}'".format(args.mod))
         #     print("Number of parameters in model {} is {:.3f}M".format(args.mod, sum(tensor.numel() for tensor in model.parameters())/1e6))
 
+
+        #TensorBoard writer keep this object. 
         if args.proc_id == 0:
             writer = self.writer
 
@@ -582,6 +586,11 @@ class Runner:
             # loss terms need to be all reduced, eval_stats need to be all gather
             # Do them all in validate
             loss_valid_list, eval_stats = self.validate(self.model, epoch, vis=True) #vis ????????????????
+          
+            # for Tensorboard
+            if not args.no_tb and args.proc_id == 0:
+                self.write_tensorboard(writer, loss_list, loss_valid_list, eval_stats, epoch+1)
+                  
             total_score = loss_list[0].avg
 
             if args.proc_id == 0:
@@ -690,6 +699,20 @@ class Runner:
         if epoch > 1 :
             pre_filepath = os.path.join(save_path, 'checkpoint_model_epoch_{}.pth.tar'.format(epoch - 1))
             os.remove(pre_filepath)
+
+    def write_tensorboard(self, writer, loss_list, loss_valid_list, eval_stats, epoch):
+        writer.add_scalars('3D-Lane-Loss', {'Training': loss_list[0].avg}, epoch)
+        writer.add_scalars('3D-Lane-Loss', {'Validation': loss_valid_list[0].avg}, epoch)
+
+        writer.add_scalars('3D-Lane-Separate-Loss', {'Training vis': loss_list[1].avg}, epoch)
+        writer.add_scalars('3D-Lane-Separate-Loss', {'Training prob': loss_list[2].avg}, epoch)
+        writer.add_scalars('3D-Lane-Separate-Loss', {'Training reg': loss_list[3].avg}, epoch)
+        writer.add_scalars('3D-Lane-Separate-Loss', {'Validation vis': loss_valid_list[1].avg}, epoch)
+        writer.add_scalars('3D-Lane-Separate-Loss', {'Validation prob': loss_valid_list[2].avg}, epoch)
+        writer.add_scalars('3D-Lane-Separate-Loss', {'Validation reg': loss_valid_list[3].avg}, epoch)
+
+        writer.add_scalars('Evaluation', {'laneline F-measure': eval_stats[0]}, epoch)
+
 
     def save_eval_result(self, args, img_path, lanelines_pred, lanelines_prob):
 
