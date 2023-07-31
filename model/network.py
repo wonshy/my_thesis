@@ -511,7 +511,12 @@ class LiftSplatShoot(nn.Module):
 
         # self.dfc_3_all = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
         # self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
-        self.dfc3_2 = Deformable_conv(inC=self.camC)
+        self.dfc3_2_layer1 = Deformable_conv(inC=self.camC)
+        self.dfc3_2_layer2 = Deformable_conv(inC=self.camC)
+        self.dfc3_2_layer3 = Deformable_conv(inC=self.camC)
+
+
+
         # self.dfc = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(1,1),kernel_size=3)
 
 
@@ -656,9 +661,16 @@ class LiftSplatShoot(nn.Module):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
         # x = self.bevencode(x)
         x = self.bevencode(x)
-        x = self.dfc3_2(x)
-        x = self.dfc3_2(x)
-        x = self.dfc3_2(x)
+        # x = self.dfc3_2(x)
+        # x = self.dfc3_2(x)
+        # x = self.dfc3_2(x)
+
+
+        x = self.dfc3_2_layer1(x)
+        x = self.dfc3_2_layer2(x)
+        x = self.dfc3_2_layer3(x)
+
+
 
         # x= self.dfc_3_all(x)
         # x= self.dfc_3_all(x)

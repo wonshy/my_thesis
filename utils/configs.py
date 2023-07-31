@@ -259,7 +259,8 @@ def config(args):
     # optimizer
     args.optimizer = 'adamw'
     args.learning_rate = 2e-4
-    args.weight_decay = 0.001 #0.01
+    # args.weight_decay = 0.001 #0.01
+    args.weight_decay = 1e-5    # As this value decreases, the loss decline gradually slower 
 
     # grad clip
     args.clip_grad_norm = 35.0
@@ -268,7 +269,7 @@ def config(args):
     # scheduler
     args.lr_policy = "cosine"
     args.T_max = 8  #10
-    args.eta_min = 1e-5 #1e-3
+    args.eta_min = 1e-7 #1e-3
 
     if args.evaluate_flops or args.evaluate_fps:
         args.batch_size = 1
@@ -279,7 +280,7 @@ def config(args):
 
     
 
-    args.nworkers = args.batch_size
+    args.nworkers = 12 #args.batch_size
 
     # args.bsz = args.batch_size
 
@@ -287,3 +288,7 @@ def config(args):
     # args.weight_decay = 1e-7
 
     args.world_size = 4
+
+    args.no_tb = False
+
+    args.random_cam = True
