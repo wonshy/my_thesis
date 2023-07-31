@@ -512,7 +512,9 @@ class LiftSplatShoot(nn.Module):
         # self.dfc_3_all = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
         # self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
         self.dfc3_2_layer1 = Deformable_conv(inC=self.camC)
+        self.dropout1 = nn.Dropout(0.3) 
         self.dfc3_2_layer2 = Deformable_conv(inC=self.camC)
+        self.dropout2 = nn.Dropout(0.3) 
         self.dfc3_2_layer3 = Deformable_conv(inC=self.camC)
 
 
@@ -667,7 +669,9 @@ class LiftSplatShoot(nn.Module):
 
 
         x = self.dfc3_2_layer1(x)
+        x = self.dropout1(x) 
         x = self.dfc3_2_layer2(x)
+        x = self.dropout2(x) 
         x = self.dfc3_2_layer3(x)
 
 
