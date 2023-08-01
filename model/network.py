@@ -43,6 +43,7 @@ class CamEncode(nn.Module):
 
         self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
         self.up1 = Up(320+112, 512) #b0 x16
+
         # self.up1 = Up(320+40, 512, scale_factor=32/self.downsample) #b0 x8
 
 
@@ -199,7 +200,7 @@ class Deformable_conv(nn.Module):
         if inC % offset_groups != 0:
             raise ValueError('in_channels must be divisible by groups')
         self.conv = nn.Conv2d(inC//offset_groups, inC , kernel_size=self.kernel_size, stride=self.stride,  padding=self.padding) #原卷积 
-        print(self.conv.weight.shape)
+        # print(self.conv.weight.shape)
         self.conv_offset = nn.Conv2d(inC, offset_groups*2*self.kernel_size*self.kernel_size , kernel_size=self.kernel_size, stride=self.stride,  padding=self.padding) 
         init_offset = torch.Tensor(np.zeros([offset_groups*2*self.kernel_size*self.kernel_size, inC,  self.kernel_size, self.kernel_size])) 
         self.conv_offset.weight = torch.nn.Parameter(init_offset) #初始化为0 
@@ -272,6 +273,87 @@ def make_one_layer(in_channels, out_channels, kernel_size=3, padding=1, stride=1
         layers = [conv2d, nn.ReLU(inplace)]
     return layers
 
+
+class BEVConcatnate(nn.Module):
+    def __init__(self,
+        in_channels,
+        out_channels,
+        num_outs):
+    
+        super(BEVConcatnate, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.num_ins = len(in_channels)
+        self.num_outs = num_outs
+
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear',
+                    align_corners=True)
+        self.lateral_convs = nn.ModuleList()
+
+
+        self.lateral_convs = nn.ModuleList()
+        self.regular_convs = nn.ModuleList()
+
+        for i in range(0, self.num_ins):
+            l_conv = make_one_layer(in_channels[i],
+                                    out_channels,
+                                    kernel_size=1,
+                                    padding=0,
+                                    batch_norm=True,
+                                    inplace=False)
+            self.lateral_convs.append(nn.Sequential(*l_conv))
+
+            if (i != 0) :
+                rc_conv = make_one_layer(out_channels*2,
+                            out_channels,
+                            kernel_size=1,
+                            padding=0,
+                            batch_norm=True,
+                            inplace=False)
+                self.regular_convs.append(nn.Sequential(*rc_conv))
+           
+        smooth_layer = make_one_layer(out_channels,
+                                      out_channels,
+                                      batch_norm=True,
+                                      inplace=False)
+        self.smooth_layer = (nn.Sequential(*smooth_layer))
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    nn.init.xavier_uniform_(m.weight, gain=1)
+                if hasattr(m, 'bias') and m.bias is not None:
+                    nn.init.constant_(m.bias, val=0)
+
+
+    def forward(self, inputs):
+        assert len(inputs) == len(self.in_channels)
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                # print("Max weight in fpn convs: ", torch.max(torch.abs(m.weight)))
+                if m.weight.grad != None:
+                    pass
+                    # print("Max weight grad in fpn convs: ", torch.max(torch.abs(m.weight.grad)))
+        
+
+       # build laterals
+            
+        laterals = [lateral_conv(inputs[i])
+                    for i, lateral_conv in enumerate(self.lateral_convs)]
+        
+        # build top-down path
+        for i in range( len(laterals) - 1, 0, -1):
+            laterals[i - 1] = self.regular_convs[i - 1](torch.cat([laterals[i - 1],
+                                                                    self.up(laterals[i])],dim=1))
+        
+        out = self.smooth_layer(laterals[0])
+
+        return out
+
+
+
 # modified from: https://github.com/open-mmlab/mmdetection/blob/master/mmdet/models/necks/fpn.py
 
 class FPN(nn.Module):
@@ -306,8 +388,6 @@ class FPN(nn.Module):
         self.add_extra_convs = add_extra_convs
         self.extra_convs_on_inputs = extra_convs_on_inputs
 
-        self.up = nn.Upsample(scale_factor=2, mode='bilinear',
-                    align_corners=True)
 
         self.lateral_convs = nn.ModuleList()
         self.fpn_convs = nn.ModuleList()
@@ -405,7 +485,8 @@ class BevEncode(nn.Module):
         super(BevEncode, self).__init__()
 
         in_channels=[inC, inC*2, inC*4, inC*8]
-        self.fpn = FPN(in_channels, inC, num_outs= len(in_channels))
+        # self.fpn = FPN(in_channels, inC, num_outs= len(in_channels))
+        self.fpn = BEVConcatnate(in_channels, inC, num_outs= len(in_channels))
 
 
         self.layer1=ResidualBlock(inC=inC, outC=inC*2, stride=2)
@@ -427,7 +508,7 @@ class BevEncode(nn.Module):
         layer2= self.layer2(layer1)
         layer3= self.layer3(layer2)
         x = self.fpn([x, layer1, layer2, layer3])
-        return x[0]
+        return x
 
 
 
