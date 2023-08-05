@@ -318,15 +318,35 @@ class BEVConcatnate(nn.Module):
                                       batch_norm=True,
                                       inplace=False)
         self.smooth_layer = (nn.Sequential(*smooth_layer))
-
+        self.init_weights()
     def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 if hasattr(m, 'weight') and m.weight is not None:
+                    print("=======conv weight=============")
                     nn.init.xavier_uniform_(m.weight, gain=1)
                 if hasattr(m, 'bias') and m.bias is not None:
+                    print("=======conv bias=============")
                     nn.init.constant_(m.bias, val=0)
+            if isinstance(m, nn.Linear):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    print("=======Linear weight=============")
+                    nn.init.normal_(m.weight.data,0.1)
+                if hasattr(m, 'bias') and m.bias is not None:
+                    print("=======Linear bias=============")
+                    nn.init.zeros_(m.bias.data)
+            # if isinstance(m, nn.BatchNorm2d):
+            #     print("=======BatchNorm2d bias=============")
+            #     m.weight.data.fill_(1)
+            #     m.bias.data.zero_()
 
+		    # elif isinstance(m, nn.Linear):
+			#     torch.nn.init.normal_(m.weight.data, 0.1)
+			#     if m.bias is not None:
+			# 	    torch.nn.init.zeros_(m.bias.data)
+		    # elif isinstance(m, nn.BatchNorm2d):
+			#     m.weight.data.fill_(1) 		 
+			#     m.bias.data.zeros_()
 
     def forward(self, inputs):
         assert len(inputs) == len(self.in_channels)
@@ -422,6 +442,7 @@ class FPN(nn.Module):
                                                 batch_norm=True,
                                                 inplace=False)
                 self.fpn_convs.append(nn.Sequential(*extra_fpn_conv))
+        # self.init_weights()
     
     def init_weights(self):
         for m in self.modules():
@@ -476,39 +497,77 @@ class FPN(nn.Module):
                     else:
                         outs.append(self.fpn_convs[i](outs[-1]))
         
-        return outs
+        return outs[0]
 
+
+
+# class BevEncode(nn.Module):
+#     def __init__(self, inC):
+#         super(BevEncode, self).__init__()
+
+#         in_channels=[inC, inC*2, inC*4, inC*8]
+#         self.fpn = FPN(in_channels, inC, num_outs= len(in_channels))
+#         # self.fpn = BEVConcatnate(in_channels, inC, num_outs= len(in_channels))
+
+
+#         self.layer1=ResidualBlock(inC=inC, outC=inC*2, stride=2)
+#         self.layer2=ResidualBlock(inC=inC*2, outC=inC*4, stride=2)
+#         self.layer3=ResidualBlock(inC=inC*4, outC=inC*8, stride=2)
+
+    
+#     def forward(self, x):
+#         layer1= self.layer1(x)
+#         layer2= self.layer2(layer1)
+#         layer3= self.layer3(layer2)
+#         x = self.fpn([x, layer1, layer2, layer3])
+#         return x
 
 
 class BevEncode(nn.Module):
     def __init__(self, inC):
         super(BevEncode, self).__init__()
+        self.trunk = EfficientNet.from_pretrained("efficientnet-b0", in_channels=inC)
 
-        in_channels=[inC, inC*2, inC*4, inC*8]
-        # self.fpn = FPN(in_channels, inC, num_outs= len(in_channels))
-        self.fpn = BEVConcatnate(in_channels, inC, num_outs= len(in_channels))
+        self.ref_resolution_layer = 4
+        self.up1 = Up(320+112, 512) 
+        self.up2 = Up(512 + 40, 256)
+        self.up3 = Up(256 + 24, 256)
+        self.up4 = Up(256 + 16, 64)
 
-
-        self.layer1=ResidualBlock(inC=inC, outC=inC*2, stride=2)
-        self.layer2=ResidualBlock(inC=inC*2, outC=inC*4, stride=2)
-        self.layer3=ResidualBlock(inC=inC*4, outC=inC*8, stride=2)
-
-
-    # def _make_layer(self,planes, num_blocks, stride):
-    #     strides = [stride] + [1]*(num_blocks-1)
-    #     layers = []
-    #     for stride in strides:
-    #         layers.append(ResidualBlock(self.in_planes, planes, stride))
-    #         self.in_planes = planes * 4
-    #     return nn.Sequential(*layers)
-
-    
     def forward(self, x):
-        layer1= self.layer1(x)
-        layer2= self.layer2(layer1)
-        layer3= self.layer3(layer2)
-        x = self.fpn([x, layer1, layer2, layer3])
+        # adapted from https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py#L231
+        endpoints = dict()
+
+        # Stem
+        x = self.trunk._swish(self.trunk._bn0(self.trunk._conv_stem(x)))
+        prev_x = x
+
+        # Blocks
+        for idx, block in enumerate(self.trunk._blocks):
+            drop_connect_rate = self.trunk._global_params.drop_connect_rate
+            if drop_connect_rate:
+                drop_connect_rate *= float(idx) / len(self.trunk._blocks) # scale drop connect_rate
+            x = block(x, drop_connect_rate=drop_connect_rate)
+            if prev_x.size(2) > x.size(2):
+                endpoints['reduction_{}'.format(len(endpoints)+1)] = prev_x
+            prev_x = x
+
+        # Head
+        endpoints['reduction_{}'.format(len(endpoints)+1)] = x
+        x = self.up1(endpoints['reduction_5'], endpoints['reduction_4'])
+        x = self.up2(x, endpoints['reduction_3']) 
+        x= self.up3(x, endpoints['reduction_2']) 
+        x= self.up4(x, endpoints['reduction_1']) 
+
         return x
+
+
+
+
+
+
+
+
 
 
 
@@ -592,12 +651,14 @@ class LiftSplatShoot(nn.Module):
 
         # self.dfc_3_all = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
         # self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
-        self.dfc3_2_layer1 = Deformable_conv(inC=self.camC)
-        self.dropout1 = nn.Dropout(0.3) 
-        self.dfc3_2_layer2 = Deformable_conv(inC=self.camC)
-        self.dropout2 = nn.Dropout(0.3) 
-        self.dfc3_2_layer3 = Deformable_conv(inC=self.camC)
 
+        #self.dfc3_2_layer1 = Deformable_conv(inC=self.camC)
+        ## self.dropout1 = nn.Dropout(0.3) 
+        #self.dfc3_2_layer2 = Deformable_conv(inC=self.camC)
+        ## self.dropout2 = nn.Dropout(0.3) 
+        #self.dfc3_2_layer3 = Deformable_conv(inC=self.camC)
+
+        self.dfc3_2 = Deformable_conv(inC=self.camC)
 
 
         # self.dfc = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(1,1),kernel_size=3)
@@ -742,18 +803,17 @@ class LiftSplatShoot(nn.Module):
     
     def forward(self, x, rots, trans, intrins, post_rots, post_trans):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
-        # x = self.bevencode(x)
         x = self.bevencode(x)
-        # x = self.dfc3_2(x)
-        # x = self.dfc3_2(x)
-        # x = self.dfc3_2(x)
+        x = self.dfc3_2(x)
+        x = self.dfc3_2(x)
+        x = self.dfc3_2(x)
 
 
-        x = self.dfc3_2_layer1(x)
-        x = self.dropout1(x) 
-        x = self.dfc3_2_layer2(x)
-        x = self.dropout2(x) 
-        x = self.dfc3_2_layer3(x)
+        #x = self.dfc3_2_layer1(x)
+        ## x = self.dropout1(x) 
+        #x = self.dfc3_2_layer2(x)
+        ## x = self.dropout2(x) 
+        #x = self.dfc3_2_layer3(x)
 
 
 

@@ -98,8 +98,10 @@ def config(args):
 
 ##################320x480######################################
 
-        # 'resize_lim': (0.238, 0.262),
-        # 'final_dim': (320, 480),
+        'resize_lim': (0.238, 0.262),
+        'final_dim': (320, 480),
+        'rot_lim': (-5.4, 5.4),
+        'bot_pct_lim': (0.0, 0.22),
 
 
 ##################256x384######################################
@@ -119,10 +121,10 @@ def config(args):
 
 ##################640x480######################################
 
-        'resize_lim': (0.341, 0.374),
-        'final_dim': (480, 640),
-        'rot_lim': (-5.4, 5.4),
-        'bot_pct_lim': (0.0, 0.11),
+        # 'resize_lim': (0.341, 0.374),
+        # 'final_dim': (480, 640),
+        # 'rot_lim': (-5.4, 5.4),
+        # 'bot_pct_lim': (0.0, 0.11),
 
 
 
@@ -238,12 +240,12 @@ def config(args):
 
 ############################################################################
 
-    args.xbound = [-14.0, 14.0, 0.25]#56
+    args.xbound = [-14.0, 14.0, 0.125]#56
     # args.xbound = [-14.0, 14.0, 0.015625]#56
 
     
     # args.ybound = [-1.0, args.top_view_region[0, 1].astype(float), 0.5] #52   104
-    args.ybound = [3.0, 107.0, 0.5] #52   104
+    args.ybound = [3.0, 107.0, 0.25] #52   104
 
 
 
@@ -259,8 +261,9 @@ def config(args):
     # optimizer
     args.optimizer = 'adamw'
     args.learning_rate = 2e-4
-    # args.weight_decay = 0.001 #0.01
-    args.weight_decay = 1e-5    # As this value decreases, the loss decline gradually slower 
+    args.weight_decay = 0.001 #0.01
+    #args.weight_decay = 1e-5    # As this value decreases, the loss decline gradually slower 
+    #args.weight_decay = 1e-2   
 
     # grad clip
     args.clip_grad_norm = 35.0
@@ -269,14 +272,17 @@ def config(args):
     # scheduler
     args.lr_policy = "cosine"
     args.T_max = 8  #10
-    args.eta_min = 1e-7 #1e-3
+    args.eta_min = 1e-5
+    # args.eta_min = 1e-7 #1e-3
+    # args.eta_min = 1e-3
 
     if args.evaluate_flops or args.evaluate_fps:
         args.batch_size = 1
     else:
         #b3 -> 4, b0 -> 9
         #args.batch_size = 3
-        args.batch_size = 2
+        #640 x 480  b0
+        args.batch_size = 5
 
     
 
