@@ -6,6 +6,7 @@ pip install setuptools==58.2.0
 pip install opencv_python==4.2.0.32
 pip install tensorboardX
 pip install thop
+pip install scipy
 sudo apt-get install libglib2.0-0 -y
 
 cd ../model/nms/
