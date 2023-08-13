@@ -113,8 +113,8 @@ class LaneEval(object):
         file_path_splited = raw_file.split('/')
         self.mkdir_if_missing(os.path.join(result_dir, 'validation/'+file_path_splited[1]))  # segment
         result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'.png')
-        # plt.savefig(result_file_path)
-        plt.savefig("feature_map.png")
+        plt.savefig(result_file_path)
+        # plt.savefig("feature_map.png")
 
 
 
@@ -161,10 +161,10 @@ class LaneEval(object):
 
             k = x_vals[x_vals < 0]
             b = y_vals[y_vals < 0] 
-            print("----------------------------------")
-            print(k)
-            print(b)
-            print("----------------------------------")
+            # print("----------------------------------")
+            # print(k)
+            # print(b)
+            # print("----------------------------------")
 
 
             # 绘制车道线
@@ -177,10 +177,10 @@ class LaneEval(object):
 
         # 保存编辑后的图像
         result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'_project.jpg')
-        # cv2.imwrite(result_file_path, image)  
-        cv2.imwrite("output.jpg", image)  
-        input("continue.....")
-        pass
+        cv2.imwrite(result_file_path, image)  
+        # cv2.imwrite("output.jpg", image)  
+        # input("continue.....")
+        # pass
 
 
 
