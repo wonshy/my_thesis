@@ -75,10 +75,10 @@ class LaneEval(object):
 
                 # print(len(gt_lanes_p[:,0]))
                 # print(len(gt_lanes_p[:,1]))
-                ax.plot3D(gt_lane[:,0], gt_lane[:,2], gt_lane[:,1], 'green', label='gt')
+                ax.plot3D(gt_lane[:,0], gt_lane[:,2], gt_lane[:,1], 'red', label='gt')
                 gt_flag=1
             else:
-                ax.plot3D(gt_lane[:,0], gt_lane[:, 2], gt_lane[:,1], 'green')
+                ax.plot3D(gt_lane[:,0], gt_lane[:, 2], gt_lane[:,1], 'red')
 
         prob_flag=0
         # 绘制prob的线
@@ -89,9 +89,9 @@ class LaneEval(object):
 
             if prob_flag == 0 :
                 prob_flag = 1
-                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'red', label='pred')
+                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'green', label='pred')
             else:
-                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'red')
+                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'green')
 
 
         # 设置图例
