@@ -21,10 +21,11 @@ def config(args):
     # learnable weight
     # in best model setting, they are 10, 4, 1
     # factor = 1 / exp(weight)
-    # args.learnable_weight_on = True
-    # args._3d_vis_loss_weight = 0.0  # -2.3026
-    # args._3d_prob_loss_weight = 0.0  # -1.3863
-    # args._3d_reg_loss_weight = 0.0
+    args.learnable_weight_on = True
+    args._3d_vis_loss_weight = 0.0  # -2.3026
+    args._3d_prob_loss_weight = 0.0  # -1.3863
+    args._3d_reg_loss_weight = 0.0
+ 
 
     # 300 sequence
     args.dataset_name = 'openlane'
@@ -282,7 +283,7 @@ def config(args):
         #b3 -> 4, b0 -> 9
         #args.batch_size = 3
         #640 x 480  b0
-        args.batch_size = 5
+        args.batch_size = 3
 
     
 

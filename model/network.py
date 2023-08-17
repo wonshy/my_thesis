@@ -625,7 +625,7 @@ class LanePredictionHead(nn.Module):
 
 class LiftSplatShoot(nn.Module):
 
-    def __init__(self, grid_conf, data_aug_conf,   num_lane_type, num_y_steps, num_category):
+    def __init__(self, args, grid_conf, data_aug_conf,   num_lane_type, num_y_steps, num_category):
         super(LiftSplatShoot, self).__init__()
         self.grid_conf = grid_conf
         self.data_aug_conf = data_aug_conf
@@ -663,6 +663,11 @@ class LiftSplatShoot(nn.Module):
         self.head = LanePredictionHead(self.camC, num_lane_type, num_y_steps, num_category)
         # toggle using QuickCumsum vs. autograd
         self.use_quickcumsum = True
+
+        # uncertainty loss weight
+        self.uncertainty_loss = nn.Parameter(torch.tensor([args._3d_vis_loss_weight,
+                                                            args._3d_prob_loss_weight,
+                                                            args._3d_reg_loss_weight]), requires_grad=True)
 
     def create_frustum(self):
         # make grid in image plane
@@ -822,7 +827,10 @@ class LiftSplatShoot(nn.Module):
         # x = self.dfc(x)
         # x = self.dfc5_2(x)
         x=self.head(x)
-        return x
+
+        uncertainty_loss = torch.tensor(1.0).to(x.device) * self.uncertainty_loss.to(x.device)
+
+        return x , uncertainty_loss
 
 #     # nn.MaxPool2d(kernel_size=2, stride=2)
 # #x dim (bach size, camera num, channel, height, width)
@@ -842,8 +850,8 @@ class LiftSplatShoot(nn.Module):
 
 
 #TODO: outC  is camera channel?
-def compile_model(grid_conf, data_aug_conf, num_lane_type, num_y_steps, num_category ):
-    return LiftSplatShoot(grid_conf, data_aug_conf, num_lane_type, num_y_steps, num_category)
+def compile_model(args, grid_conf, data_aug_conf, num_lane_type, num_y_steps, num_category ):
+    return LiftSplatShoot(args, grid_conf, data_aug_conf, num_lane_type, num_y_steps, num_category)
 
 
 

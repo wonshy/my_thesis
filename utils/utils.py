@@ -339,7 +339,7 @@ class Runner:
         test_dataset.set_x_off_std(self.train_dataset._x_off_std)
         test_dataset.set_z_std(self.train_dataset._z_std)
         # test_dataset.normalize_lane_label()
-        test_loader, test_sampler = get_loader(test_dataset, args)
+        test_loader, test_sampler = get_loader(test_dataset, False, args)
 
         return test_dataset, test_loader, test_sampler
 
@@ -348,7 +348,7 @@ class Runner:
     def _get_model_ddp(self):
         args = self.args
         # Define network
-        model = compile_model(self.grid_conf, args.data_aug_conf, 1, args.num_y_steps, args.num_category)
+        model = compile_model(args, self.grid_conf, args.data_aug_conf, 1, args.num_y_steps, args.num_category)
 
         if args.sync_bn:
             if args.proc_id == 0:
@@ -439,6 +439,30 @@ class Runner:
             optim_saved_state = None
             schedule_saved_state = None
         return model, best_epoch, lowest_loss, best_f1_epoch, best_val_f1, optim_saved_state, schedule_saved_state
+
+
+
+    def compute_loss(self, args, epoch, loss_3d, uncertainty_loss, loss_3d_dict):
+        if args.learnable_weight_on:
+            loss = 0
+            _3d_vis_loss_factor = 1 / torch.exp(uncertainty_loss[0])
+            loss += _3d_vis_loss_factor * loss_3d_dict['vis_loss']
+            _3d_prob_loss_factor = 1 / torch.exp(uncertainty_loss[1])
+            loss += _3d_prob_loss_factor * loss_3d_dict['prob_loss']
+            _3d_reg_loss_factor = 1 / torch.exp(uncertainty_loss[2])
+            loss += _3d_reg_loss_factor * loss_3d_dict['reg_loss']
+
+
+            loss += uncertainty_loss[0:3].sum() * 0.5
+
+        else:
+            # epoch depended loss
+            if epoch > args.seg_start_epoch:
+                loss = loss_3d  + 0.0 * uncertainty_loss[0:6].sum()
+            else:
+                loss = loss_3d  + 0.0 * uncertainty_loss[0:6].sum()
+        return loss
+
 
 
     def reduce_all_loss(self, args, loss_list, loss, loss_3d_dict, num):
@@ -546,13 +570,18 @@ class Runner:
                 # # Run model
                 optimizer.zero_grad()
 
-                preds = self.model(images,
+                preds,uncertainty_loss = self.model(images,
                                    all_rots, all_trans,
                                    all_intrinsics,all_post_rots,all_post_trans
                                    )
 
-                loss, loss_3d_dict = criterion(preds, gt_anchor)
+                loss_3d, loss_3d_dict = criterion(preds, gt_anchor)
                 # print(loss_3d_dict)
+
+                # overall loss
+                loss = self.compute_loss(args, epoch, loss_3d, uncertainty_loss, loss_3d_dict)
+
+
 
                 # Clip gradients (usefull for instabilities or mistakes in ground truth)
                 if args.clip_grad_norm != 0:
@@ -644,7 +673,7 @@ class Runner:
 
     def eval(self):
         args = self.args
-        self.model = compile_model(self.grid_conf, args.data_aug_conf, 1, args.num_y_steps, args.num_category)
+        self.model = compile_model(args, self.grid_conf, args.data_aug_conf, 1, args.num_y_steps, args.num_category)
 
         if args.sync_bn:
             if args.proc_id == 0:
