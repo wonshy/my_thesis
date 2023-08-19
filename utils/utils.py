@@ -453,7 +453,7 @@ class Runner:
             loss += _3d_reg_loss_factor * loss_3d_dict['reg_loss']
 
 
-            loss += uncertainty_loss[0:3].sum() * 0.5
+            loss += uncertainty_loss[0:3].sum()
 
         else:
             # epoch depended loss
@@ -825,7 +825,7 @@ class Runner:
                     torch.cuda.synchronize()
                     start = time.time()
 
-                    preds = self.model(images,
+                    preds,uncertainty_loss = self.model(images,
                         all_rots, all_trans,
                         all_intrinsics,all_post_rots,all_post_trans
                         )
@@ -834,7 +834,7 @@ class Runner:
                     res.append(end-start)
 
                 else:
-                    preds = self.model(images,
+                    preds,uncertainty_loss = self.model(images,
                         all_rots, all_trans,
                         all_intrinsics,all_post_rots,all_post_trans
                         )    
@@ -853,9 +853,12 @@ class Runner:
 
 
 
-
-                loss, loss_3d_dict = criterion(preds, gt_anchor)
+                loss_3d, loss_3d_dict = criterion(preds, gt_anchor)
                 # losses += loss
+
+
+                # overall loss
+                loss = self.compute_loss(args, epoch, loss_3d, uncertainty_loss, loss_3d_dict)
 
 
                 # print(image.size(0))
