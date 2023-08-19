@@ -743,6 +743,12 @@ class Runner:
         writer.add_scalars('Evaluation', {'laneline F-measure': eval_stats[0]}, epoch)
 
 
+        # 记录梯度信息到TensorBoard
+        for name, param in self.model.named_parameters():
+            if param.grad is not None:
+                writer.add_histogram(name + '_grad', param.grad, epoch)
+
+
     def save_eval_result(self, args, img_path, lanelines_pred, lanelines_prob):
 
         # 3d eval result
