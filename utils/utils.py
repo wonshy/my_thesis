@@ -582,6 +582,13 @@ class Runner:
                 loss = self.compute_loss(args, epoch, loss_3d, uncertainty_loss, loss_3d_dict)
 
 
+                # for Tensorboard
+                if not args.no_tb and args.proc_id == 0:
+                    self.write_grad_tensorboard(writer, epoch+1)
+
+                if loss.data > args.loss_threshold:
+                    print("Batch with idx {} skipped due to aug-caused too large loss".format(idx.numpy()))
+                    loss.fill_(0.0)
 
                 # Clip gradients (usefull for instabilities or mistakes in ground truth)
                 if args.clip_grad_norm != 0:
@@ -618,7 +625,7 @@ class Runner:
           
             # for Tensorboard
             if not args.no_tb and args.proc_id == 0:
-                self.write_tensorboard(writer, loss_list, loss_valid_list, eval_stats, epoch+1)
+                self.write_loss_tensorboard(writer, loss_list, loss_valid_list, eval_stats, epoch+1)
                   
             total_score = loss_list[0].avg
 
@@ -729,7 +736,7 @@ class Runner:
             pre_filepath = os.path.join(save_path, 'checkpoint_model_epoch_{}.pth.tar'.format(epoch - 1))
             os.remove(pre_filepath)
 
-    def write_tensorboard(self, writer, loss_list, loss_valid_list, eval_stats, epoch):
+    def write_loss_tensorboard(self, writer, loss_list, loss_valid_list, eval_stats, epoch):
         writer.add_scalars('3D-Lane-Loss', {'Training': loss_list[0].avg}, epoch)
         writer.add_scalars('3D-Lane-Loss', {'Validation': loss_valid_list[0].avg}, epoch)
 
@@ -743,11 +750,20 @@ class Runner:
         writer.add_scalars('Evaluation', {'laneline F-measure': eval_stats[0]}, epoch)
 
 
-        # 记录梯度信息到TensorBoard
+    def write_grad_tensorboard(self, writer, epoch):
         for name, param in self.model.named_parameters():
             if param.grad is not None:
                 writer.add_histogram(name + '_grad', param.grad, epoch)
 
+
+    
+    def write_badvalidation_tensorboard(self, writer, batch_idx, images, loss_valid_list):
+        if loss_valid_list["reg_loss"] > 700.0:
+            for imgs in images:
+                writer.add_image(f'BadValidationSample/Batch{batch_idx}', imgs, batch_idx, dataformats='NCHW')
+                writer.add_text(f'BadValidationSampleInfo/Batch{batch_idx}', f'Index: {0}, vis Loss: {loss_valid_list["vis_loss"]}', batch_idx)
+                writer.add_text(f'BadValidationSampleInfo/Batch{batch_idx}', f'Index: {0}, prob Loss: {loss_valid_list["prob_loss"]}', batch_idx)
+                writer.add_text(f'BadValidationSampleInfo/Batch{batch_idx}', f'Index: {0}, reg Loss: {loss_valid_list["reg_loss"]}', batch_idx)
 
     def save_eval_result(self, args, img_path, lanelines_pred, lanelines_prob):
 
@@ -806,6 +822,11 @@ class Runner:
 
         res = []
 
+
+        #TensorBoard writer keep this object. 
+        if args.proc_id == 0:
+            writer = self.writer
+
         # Start validation loop
         with torch.no_grad():
 
@@ -862,6 +883,8 @@ class Runner:
                 loss_3d, loss_3d_dict = criterion(preds, gt_anchor)
                 # losses += loss
 
+                # if not args.no_tb and args.proc_id == 0:
+                #     self.write_badvalidation_tensorboard(writer, i, images,loss_3d_dict)
 
                 # overall loss
                 loss = self.compute_loss(args, epoch, loss_3d, uncertainty_loss, loss_3d_dict)

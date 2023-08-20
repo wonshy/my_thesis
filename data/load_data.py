@@ -666,8 +666,10 @@ class lane_dataset(Dataset):
             resize = max(fH/H, fW/W)
             resize_dims = (int(W*resize), int(H*resize))
             newW, newH = resize_dims
-            crop_h = int((1 - np.mean(self.data_aug_conf['bot_pct_lim']))*newH) - fH
-            crop_w = int(max(0, newW - fW) / 2)
+            # crop_h = int((1 - np.mean(self.data_aug_conf['bot_pct_lim']))*newH) - fH
+            crop_h = newH - fH
+            # crop_w = int(max(0, newW - fW) / 2)
+            crop_w = newW - fW
             crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
             flip = False
             rotate = 0

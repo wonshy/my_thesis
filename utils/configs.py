@@ -22,16 +22,16 @@ def config(args):
     # in best model setting, they are 10, 4, 1
     # factor = 1 / exp(weight)
     args.learnable_weight_on = True
-    args._3d_vis_loss_weight = 0.0  # -2.3026
-    args._3d_prob_loss_weight = 0.0  # -1.3863
-    args._3d_reg_loss_weight = 0.0
+    args._3d_vis_loss_weight = -2.3026 #-2.3026
+    args._3d_prob_loss_weight = -1.3863  # -1.3863
+    args._3d_reg_loss_weight = 0
  
 
     # 300 sequence
     args.dataset_name = 'openlane'
 
 
-    dataset_part = 'lane3d_300'
+    dataset_part = 'lane3d_1000'
     # dataset path
     root_path = os.path.abspath(os.path.join(os.getcwd(), ".."))
     dataset_path = os.path.join(root_path, "openlane")
@@ -99,25 +99,25 @@ def config(args):
 
 ##################320x480######################################
 
-        'resize_lim': (0.238, 0.262),
-        'final_dim': (320, 480),
-        'rot_lim': (-5.4, 5.4),
-        'bot_pct_lim': (0.0, 0.22),
+        # 'resize_lim': (0.238, 0.262),
+        # 'final_dim': (320, 480),
+        # 'rot_lim': (-5.4, 5.4),
+        # 'bot_pct_lim': (0.0, 0.22),
 
 
 ##################256x384######################################
 
-        # 'resize_lim': (0.192, 0.241),
-        # 'final_dim': (256, 384),
-        # 'rot_lim': (-5.4, 5.4),
-        # 'bot_pct_lim': (0.0, 0.11),
+        'resize_lim': (0.192, 0.201),
+        'final_dim': (256, 384),
+        'rot_lim': (-5.4, 5.4),
+        'bot_pct_lim': (0.0, 0.11),
 
 ##################128x192######################################
 
         # 'resize_lim': (0.092, 0.108),
         # 'final_dim': (128, 192),#good
-        #'rot_lim': (-5.4, 5.4),
-        #'bot_pct_lim': (0.0, 0.22),
+        # 'rot_lim': (-5.4, 5.4),
+        # 'bot_pct_lim': (0.0, 0.22),
 
 
 ##################640x480######################################
@@ -135,7 +135,7 @@ def config(args):
         'rand_flip': True,
 
         # src=(h:1280, w:1920)
-        # dest = src*rot_limt*(1 - bot_pct_lim)
+        # dest = src*resize_lim*(1 - bot_pct_lim)
         # crop =(dest - final_dim)
         # img =  (crop_w, crop_h, crop_w + final_dim_W, crop_h + final_dim_H)
         # 最终的结果是，越大的裁剪的越多， 填补的也越多
@@ -233,20 +233,20 @@ def config(args):
 
 
 
-    # args.xbound = [-28.0, 28.0, 0.5]#56
-    # args.ybound = [0.0, 104.0, 1] #52   104
+    # args.xbound = [-28.0, 28.0, 0.5]#112
+    # args.ybound = [0.0, 104.0, 1] #26
 
     # args.zbound = [-10.0, 10.0, 20.0]
     # args.dbound = [4.0, 104.0, 1]
 
 ############################################################################
 
-    args.xbound = [-14.0, 14.0, 0.125]#56
-    # args.xbound = [-14.0, 14.0, 0.015625]#56
+    args.xbound = [-14.0, 14.0, 0.25]#112
+    # args.xbound = [-14.0, 14.0, 0.015625]#112
 
     
-    # args.ybound = [-1.0, args.top_view_region[0, 1].astype(float), 0.5] #52   104
-    args.ybound = [3.0, 107.0, 0.25] #52   104
+    # args.ybound = [-1.0, args.top_view_region[0, 1].astype(float), 0.5] #26
+    args.ybound = [3.0, 107.0, 0.5] #26
 
 
 
@@ -268,7 +268,7 @@ def config(args):
 
     # grad clip
     args.clip_grad_norm = 35.0
-    args.loss_threshold = 1e5
+    args.loss_threshold = 1e6 #1e5
 
     # scheduler
     args.lr_policy = "cosine"
@@ -283,7 +283,7 @@ def config(args):
         #b3 -> 4, b0 -> 9
         #args.batch_size = 3
         #640 x 480  b0
-        args.batch_size = 3
+        args.batch_size = 5
 
     
 

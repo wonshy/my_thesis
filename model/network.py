@@ -528,9 +528,9 @@ class FPN(nn.Module):
 #         return x
 
 
-class BevEncode(nn.Module):
+class EfficientNetFPN(nn.Module):
     def __init__(self, inC):
-        super(BevEncode, self).__init__()
+        super(EfficientNetFPN, self).__init__()
         self.trunk = EfficientNet.from_pretrained("efficientnet-b0", in_channels=inC)
 
         self.ref_resolution_layer = 4
@@ -565,6 +565,14 @@ class BevEncode(nn.Module):
         x= self.up4(x, endpoints['reduction_1']) 
 
         return x
+
+
+
+
+
+
+
+
 
 
 
@@ -643,18 +651,21 @@ class LiftSplatShoot(nn.Module):
         self.frustum = self.create_frustum()
         self.D, _, _, _ = self.frustum.shape
         self.camencode = CamEncode(self.D, self.camC, self.downsample)
-        self.bevencode = BevEncode(inC=self.camC)
+
+        # self.bevencode = FPN(inC=self.camC)
+
+        # self.bevencode = BevEncode(inC=self.camC)
 
         # self.dfc_3_all = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(2,2),kernel_size=3)
         # self.dfc5_2 = Deformable_conv(inC=self.camC,  padding=(2,2), stride=(2,1),kernel_size=5)
 
-        #self.dfc3_2_layer1 = Deformable_conv(inC=self.camC)
+        self.dfc3_2_layer1 = Deformable_conv(inC=self.camC)
         ## self.dropout1 = nn.Dropout(0.3) 
-        #self.dfc3_2_layer2 = Deformable_conv(inC=self.camC)
+        self.dfc3_2_layer2 = Deformable_conv(inC=self.camC)
         ## self.dropout2 = nn.Dropout(0.3) 
-        #self.dfc3_2_layer3 = Deformable_conv(inC=self.camC)
+        self.dfc3_2_layer3 = Deformable_conv(inC=self.camC)
 
-        self.dfc3_2 = Deformable_conv(inC=self.camC)
+        # self.dfc3_2 = Deformable_conv(inC=self.camC)
 
 
         # self.dfc = Deformable_conv(inC=self.camC,  padding=(1,1), stride=(1,1),kernel_size=3)
@@ -804,17 +815,18 @@ class LiftSplatShoot(nn.Module):
     
     def forward(self, x, rots, trans, intrins, post_rots, post_trans):
         x = self.get_voxels(x, rots, trans, intrins, post_rots, post_trans)
-        x = self.bevencode(x)
-        x = self.dfc3_2(x)
-        x = self.dfc3_2(x)
-        x = self.dfc3_2(x)
+        # x = self.bevencode(x)
+        # x = self.dfc3_2(x)
+        # x = self.dfc3_2(x)
+        # x = self.dfc3_2(x)
 
 
-        #x = self.dfc3_2_layer1(x)
+
+        x = self.dfc3_2_layer1(x)
         ## x = self.dropout1(x) 
-        #x = self.dfc3_2_layer2(x)
+        x = self.dfc3_2_layer2(x)
         ## x = self.dropout2(x) 
-        #x = self.dfc3_2_layer3(x)
+        x = self.dfc3_2_layer3(x)
 
 
 
@@ -879,6 +891,13 @@ class Laneline_loss_gflat_multiclass(nn.Module):
         self.anchor_dim = 3* self.num_y_steps + num_category
         self.pred_cam = pred_cam
 
+        self.vis_focal_gamma = vis_gamma = 2
+        self.vis_focal_alpha = vis_alpha = 3
+
+        self.category_focal_gamma = category_gamma = 3
+        self.category_focal_alpha = category_alpha =2 
+
+
     def forward(self, pred_3D_lanes, gt_3D_lanes):
         """
 
@@ -892,7 +911,7 @@ class Laneline_loss_gflat_multiclass(nn.Module):
         """
         sizes = pred_3D_lanes.shape
         # reshape to N x ipm_w/8 x 3 x (3K+1)
-        pred_3D_lanes = pred_3D_lanes.reshape(sizes[0], sizes[1], self.num_types, self.anchor_dim)
+        pred_3D_lanes = pred_3D_lanes.reshape(sizes[0], sizes[1], self.num_types, self.anchor_dim)#self.num_types =1,   self.anchor_dim=51
         gt_3D_lanes = gt_3D_lanes.reshape(sizes[0], sizes[1], self.num_types, self.anchor_dim)
         # class prob N x ipm_w/8 x 3 x 1, anchor value N x ipm_w/8 x 3 x 2K
         pred_category = pred_3D_lanes[:, :, :, self.anchor_dim - self.num_category:]
@@ -904,14 +923,20 @@ class Laneline_loss_gflat_multiclass(nn.Module):
         gt_visibility = gt_3D_lanes[:, :, :, 2 * self.num_y_steps:3 * self.num_y_steps]
 
         # valid_category_weight = torch.sum(torch.mul(pred_category, gt_category_onehot), dim=-1)
+        #valid_category_weight.shape =  (Batch,112,1,1)
         valid_category_weight = torch.sum(gt_category_onehot[:, :, :, 1:], dim=-1).unsqueeze(-1)
 
         # cross-entropy loss for visibility
-
-        loss0 = -torch.sum(
+        # eight * gt_vis * log(pred_vis)  +  weight * (1 - gt_vis)*(1 - pred_vis)
+        vis_loss = -torch.sum(
             valid_category_weight * gt_visibility * torch.log(pred_visibility + torch.tensor(1e-9)) +
             valid_category_weight * (torch.ones_like(gt_visibility) - gt_visibility + torch.tensor(1e-9)) *
             torch.log(torch.ones_like(pred_visibility) - pred_visibility + torch.tensor(1e-9))) / self.num_y_steps
+
+        pt = torch.exp(-vis_loss)
+        loss0 = (1 - pt) ** self.vis_focal_gamma * vis_loss
+        if self.vis_focal_alpha is not None:
+            loss0 = self.vis_focal_alpha * loss0
 
         # balance categories
         num_category = pred_category.shape[-1]
@@ -922,7 +947,12 @@ class Laneline_loss_gflat_multiclass(nn.Module):
         gt_category_onehot2class = torch.argmax(gt_category_onehot, dim=-1)
         pred_category = pred_category.reshape(-1, pred_category.shape[-1])
         gt_category_onehot2class = gt_category_onehot2class.reshape(-1)
-        loss1 = cross_entropy_loss(pred_category, gt_category_onehot2class)
+        category_loss = cross_entropy_loss(pred_category, gt_category_onehot2class)
+
+        pt = torch.exp(-category_loss)
+        loss1 = (1 - pt) ** self.category_focal_gamma * category_loss
+        if self.category_focal_alpha is not None:
+            loss1 = self.category_focal_alpha * loss1
 
 
         # x/z offsets
