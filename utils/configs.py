@@ -262,7 +262,7 @@ def config(args):
     # optimizer
     args.optimizer = 'adamw'
     args.learning_rate = 2e-4
-    args.weight_decay = 0.001 #0.01
+    args.weight_decay = 0.004 #0.01
     #args.weight_decay = 1e-5    # As this value decreases, the loss decline gradually slower 
     #args.weight_decay = 1e-2   
 
@@ -283,11 +283,11 @@ def config(args):
         #b3 -> 4, b0 -> 9
         #args.batch_size = 3
         #640 x 480  b0
-        args.batch_size = 5
+        args.batch_size = 12
 
     
 
-    args.nworkers = 12 #args.batch_size
+    args.nworkers = 14 #args.batch_size
 
     # args.bsz = args.batch_size
 
