@@ -56,8 +56,9 @@ class LaneEval(object):
 
     def gen_line(self, raw_file, gt_lanes, gt_visibility_mat,  pred_lanes,  pred_visibility_mat,  P_g2im):
            # 创建三维图形对象
-        fig = plt.figure()
-        ax = plt.axes(projection='3d')
+        fig = plt.figure(figsize=(15, 6))
+        ax3d = fig.add_subplot(121, projection='3d')
+
         y=self.y_samples
 
         gt_flag=0
@@ -75,10 +76,10 @@ class LaneEval(object):
 
                 # print(len(gt_lanes_p[:,0]))
                 # print(len(gt_lanes_p[:,1]))
-                ax.plot3D(gt_lane[:,0], gt_lane[:,2], gt_lane[:,1], 'red', label='gt')
+                ax3d.plot3D(gt_lane[:,0], gt_lane[:,2], gt_lane[:,1], 'red', label='gt')
                 gt_flag=1
             else:
-                ax.plot3D(gt_lane[:,0], gt_lane[:, 2], gt_lane[:,1], 'red')
+                ax3d.plot3D(gt_lane[:,0], gt_lane[:, 2], gt_lane[:,1], 'red')
 
         prob_flag=0
         # 绘制prob的线
@@ -89,18 +90,21 @@ class LaneEval(object):
 
             if prob_flag == 0 :
                 prob_flag = 1
-                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'green', label='pred')
+                ax3d.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'green', label='pred')
             else:
-                ax.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'green')
+                ax3d.plot3D(pred_lane[:,0], pred_lane[:,2], pred_lane[:,1], 'green')
 
+
+
+        ax3d.set_title('3d-lane')
 
         # 设置图例
-        ax.legend()
+        ax3d.legend()
 
         # 设置图形参数
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
+        ax3d.set_xlabel('X')
+        ax3d.set_ylabel('Y')
+        ax3d.set_zlabel('Z')
 
         # 显示图形
         #plt.show()
@@ -113,7 +117,7 @@ class LaneEval(object):
         file_path_splited = raw_file.split('/')
         self.mkdir_if_missing(os.path.join(result_dir, 'validation/'+file_path_splited[1]))  # segment
         result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'.png')
-        plt.savefig(result_file_path)
+        # plt.savefig(result_file_path)
         # plt.savefig("feature_map.png")
 
 
@@ -175,11 +179,28 @@ class LaneEval(object):
                 image=cv2.line(image, (x_vals[k - 1].astype(int32), y_vals[k - 1].astype(int32)),
                         (x_vals[k].astype(int32), y_vals[k].astype(int32)), line_color, line_thickness)
 
+
+        image = image[:,:,::-1]
+        ax2d = fig.add_subplot(122)
+        ax2d.imshow(image)
+        ax2d.axis('off')
+        ax2d.set_title('front')
+
+        # 调整子图之间的间距
+        plt.tight_layout()
+
+
+        plt.savefig("feature_map.png")
+
+
+
         # 保存编辑后的图像
-        result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'_project.jpg')
-        cv2.imwrite(result_file_path, image)  
+        # result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'_project.jpg')
+        # cv2.imwrite(result_file_path, image)  
+
+
         # cv2.imwrite("output.jpg", image)  
-        # input("continue.....")
+        input("continue.....")
         # pass
 
 
