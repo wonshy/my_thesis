@@ -101,7 +101,7 @@ class LaneEval(object):
 
 
 
-        ax3d.set_title('3d-lane')
+        ax3d.set_title('3D-LANE')
 
         # 设置图例
         ax3d.legend()
@@ -215,18 +215,16 @@ class LaneEval(object):
         # 调整子图之间的间距
         plt.tight_layout()
 
-
-        plt.savefig("feature_map.png")
+        plt.savefig(result_file_path)
+        # plt.savefig("feature_map.png")
 
 
 
         # 保存编辑后的图像
         # result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'_project.jpg')
         # cv2.imwrite(result_file_path, image)  
-
-
         # cv2.imwrite("output.jpg", image)  
-        input("continue.....")
+        # input("continue.....")
         # pass
 
 
