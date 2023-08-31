@@ -499,13 +499,13 @@ class lane_dataset(Dataset):
                gt_anchors, visibility_vectors, category_ids, ass_ids
 
 
-    def get_extend_file(self, dst_path, num, ref_file):
-        (orig_path, orig_file) = os.path.split(ref_file)
-        (_, tf_tag) = os.path.split(orig_path)
-        (filename,extension) = os.path.splitext(orig_file)
-        #construct extend name
-        dst_file = dst_path  + tf_tag + '/' + filename + '.' + str(num) + extension
-        return dst_file
+    # def get_extend_file(self, dst_path, num, ref_file):
+    #     (orig_path, orig_file) = os.path.split(ref_file)
+    #     (_, tf_tag) = os.path.split(orig_path)
+    #     (filename,extension) = os.path.splitext(orig_file)
+    #     #construct extend name
+    #     dst_file = dst_path  + tf_tag + '/' + filename + '.' + str(num) + extension
+    #     return dst_file
 
     # Re-calculate extrinsic matrix based on ground coordinate
     def extrinsic_recalculate(self, extrinsic, front_extrinsic, cam_num):
@@ -729,13 +729,13 @@ class lane_dataset(Dataset):
         # print("camera numbers: {:d}".format(self.camera_nums))
         for extend_num in self.cam_sel:            #extend label 
 
-            extend_label_file = self.get_extend_file(self.extend_json_file_path ,extend_num, label_file)
+            extend_label_file = get_extend_file(self.extend_json_file_path ,extend_num, label_file)
 
             #extennd image
             dataset_class='training/'
             if "validation/" in main_image_path:
                 dataset_class='validation/'
-            extend_image_path =  self.get_extend_file(self.extend_dataset_base_dir + dataset_class,
+            extend_image_path =  get_extend_file(self.extend_dataset_base_dir + dataset_class,
                 extend_num, main_image_path)
                         
             # print(extend_image_path)

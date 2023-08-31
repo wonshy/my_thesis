@@ -31,6 +31,11 @@ class LaneEval(object):
     def __init__(self, args):
         self.dataset_name = args.dataset_name
         self.dataset_dir = args.dataset_dir
+        self.extend_dataset_base_dir = args.extend_dataset_dir
+        #eval cams
+        self.extend_cams=[  args.data_aug_conf['cams'][cam_pos] for cam_pos in args.data_aug_conf['cams_sel'] if args.data_aug_conf['cams'][cam_pos] > 0 ]
+
+        self.cams = args.data_aug_conf['cams']
 
         self.x_min = args.top_view_region[0, 0]
         self.x_max = args.top_view_region[1, 0]
@@ -56,8 +61,8 @@ class LaneEval(object):
 
     def gen_line(self, raw_file, gt_lanes, gt_visibility_mat,  pred_lanes,  pred_visibility_mat,  P_g2im):
            # 创建三维图形对象
-        fig = plt.figure(figsize=(15, 6))
-        ax3d = fig.add_subplot(121, projection='3d')
+        fig = plt.figure(figsize=(15, 18))
+        ax3d = fig.add_subplot(321, projection='3d')
 
         y=self.y_samples
 
@@ -163,8 +168,8 @@ class LaneEval(object):
             x_vals, y_vals = projective_transformation(P_g2im, pred_lane[:,0], pred_lane[:,2], pred_lane[:,1])
 
 
-            k = x_vals[x_vals < 0]
-            b = y_vals[y_vals < 0] 
+            # k = x_vals[x_vals < 0]
+            # b = y_vals[y_vals < 0] 
             # print("----------------------------------")
             # print(k)
             # print(b)
@@ -181,10 +186,31 @@ class LaneEval(object):
 
 
         image = image[:,:,::-1]
-        ax2d = fig.add_subplot(122)
+        ax2d = fig.add_subplot(322)
         ax2d.imshow(image)
         ax2d.axis('off')
-        ax2d.set_title('front')
+        ax2d.set_title(list(self.cams.keys())[list(self.cams.values()).index(0)])
+
+
+
+
+        
+        #add extend image
+
+        for i, extend_num in enumerate(self.extend_cams):
+            extend_image =  get_extend_file(self.extend_dataset_base_dir + 'validation/',
+                                                extend_num, image_dir)
+            image = cv2.imread(extend_image) 
+            image = image[:,:,::-1]
+            ax2d = fig.add_subplot(320+i+3)
+            ax2d.imshow(image)
+            ax2d.axis('off')
+            ax2d.set_title(list(self.cams.keys())[list(self.cams.values()).index(extend_num)])
+
+
+
+
+
 
         # 调整子图之间的间距
         plt.tight_layout()

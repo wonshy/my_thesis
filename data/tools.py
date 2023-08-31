@@ -8,6 +8,7 @@ import ortools
 from PIL import Image
 from ortools.graph import pywrapgraph
 
+import os
 
 def projection_g2im_extrinsic(E, K):
     E_inv = np.linalg.inv(E)[0:3, :]
@@ -248,3 +249,12 @@ def img_transform(img, post_rot, post_tran,
     post_tran = A.matmul(post_tran) + b
 
     return img, post_rot, post_tran
+
+
+def get_extend_file(dst_path, num, ref_file):
+    (orig_path, orig_file) = os.path.split(ref_file)
+    (_, tf_tag) = os.path.split(orig_path)
+    (filename,extension) = os.path.splitext(orig_file)
+    #construct extend name
+    dst_file = dst_path  + tf_tag + '/' + filename + '.' + str(num) + extension
+    return dst_file
