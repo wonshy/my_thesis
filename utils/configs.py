@@ -298,4 +298,4 @@ def config(args):
 
     args.no_tb = False
 
-    args.random_cam = True
+    args.random_cam = False
