@@ -60,9 +60,12 @@ class LaneEval(object):
 
 
     def gen_line(self, raw_file, gt_lanes, gt_visibility_mat,  pred_lanes,  pred_visibility_mat,  P_g2im):
-           # 创建三维图形对象
-        fig = plt.figure(figsize=(15, 18))
-        ax3d = fig.add_subplot(321, projection='3d')
+        # 创建三维图形对象
+        fig = plt.figure(figsize=(15, 9))     
+
+        #3x4  , colspan=2, rowspan=2
+        ax3d = plt.subplot2grid((3, 4), (0, 0), colspan=2, rowspan=2, projection='3d')
+
 
         y=self.y_samples
 
@@ -186,7 +189,9 @@ class LaneEval(object):
 
 
         image = image[:,:,::-1]
-        ax2d = fig.add_subplot(322)
+
+        #3x4  , colspan=2, rowspan=2
+        ax2d = plt.subplot2grid((3, 4), (0, 2), colspan=2, rowspan=2)
         ax2d.imshow(image)
         ax2d.axis('off')
         ax2d.set_title(list(self.cams.keys())[list(self.cams.values()).index(0)])
@@ -202,7 +207,7 @@ class LaneEval(object):
                                                 extend_num, image_dir)
             image = cv2.imread(extend_image) 
             image = image[:,:,::-1]
-            ax2d = fig.add_subplot(320+i+3)
+            ax2d = plt.subplot2grid((3, 4), (2, i))
             ax2d.imshow(image)
             ax2d.axis('off')
             ax2d.set_title(list(self.cams.keys())[list(self.cams.values()).index(extend_num)])
@@ -215,8 +220,8 @@ class LaneEval(object):
         # 调整子图之间的间距
         plt.tight_layout()
 
-        plt.savefig(result_file_path)
-        # plt.savefig("feature_map.png")
+        # plt.savefig(result_file_path)
+        plt.savefig("feature_map.png")
 
 
 
@@ -224,7 +229,7 @@ class LaneEval(object):
         # result_file_path = ops.join(result_dir, 'validation/'+file_path_splited[1]+'/'+file_path_splited[-1][:-4]+'_project.jpg')
         # cv2.imwrite(result_file_path, image)  
         # cv2.imwrite("output.jpg", image)  
-        # input("continue.....")
+        input("continue.....")
         # pass
 
 
