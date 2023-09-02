@@ -24,7 +24,7 @@ def config(args):
     args.learnable_weight_on = True
     args._3d_vis_loss_weight = -2.3026 #-2.3026
     args._3d_prob_loss_weight = -1.3863  # -1.3863
-    args._3d_reg_loss_weight = 0
+    args._3d_reg_loss_weight = -0.1
  
 
     # 300 sequence
@@ -283,7 +283,7 @@ def config(args):
         #b3 -> 4, b0 -> 9
         #args.batch_size = 3
         #640 x 480  b0
-        args.batch_size = 12
+        args.batch_size = 20
 
     
 

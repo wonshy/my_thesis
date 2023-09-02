@@ -38,12 +38,12 @@ class CamEncode(nn.Module):
         self.downsample = downsample
 
         # self.ref_resolution_layer = (torch.tensor(5) - torch.log2(torch.tensor(32/(self.downsample)))).int()
-        self.ref_resolution_layer = torch.log2(torch.tensor(downsample // 2 )).int()
+        # self.ref_resolution_layer = torch.log2(torch.tensor(downsample // 2 )).int()
 
 
         self.trunk = EfficientNet.from_pretrained("efficientnet-b0")
         self.up1 = Up(320+112, 512) #b0 x16
-        self.up2 = Up(512+40, 256) #b0 x16
+        # self.up2 = Up(512+40, 256) #b0 x16
 
         # self.up1 = Up(320+40, 512, scale_factor=32/self.downsample) #b0 x8
 
@@ -73,8 +73,8 @@ class CamEncode(nn.Module):
 
 
 
-        # self.depthnet = nn.Conv2d(512, self.D + self.C, kernel_size=1, padding=0)
-        self.depthnet = nn.Conv2d(256, self.D + self.C, kernel_size=1, padding=0)
+        self.depthnet = nn.Conv2d(512, self.D + self.C, kernel_size=1, padding=0)
+        # self.depthnet = nn.Conv2d(256, self.D + self.C, kernel_size=1, padding=0)
 
 
     def get_depth_dist(self, x, eps=1e-20):
@@ -114,7 +114,7 @@ class CamEncode(nn.Module):
         # Head
         endpoints['reduction_{}'.format(len(endpoints)+1)] = x
         x = self.up1(endpoints['reduction_5'], endpoints['reduction_4' ])
-        x = self.up2(x, endpoints['reduction_3'])
+        # x = self.up2(x, endpoints['reduction_3'])
 
         return x
 
@@ -646,7 +646,7 @@ class LiftSplatShoot(nn.Module):
         self.bx = nn.Parameter(bx, requires_grad=False)
         self.nx = nn.Parameter(nx, requires_grad=False)
 
-        self.downsample = 8
+        self.downsample = 16
         self.camC = 64
         self.frustum = self.create_frustum()
         self.D, _, _, _ = self.frustum.shape
