@@ -219,10 +219,9 @@ class LaneEval(object):
 
         # 调整子图之间的间距
         plt.tight_layout()
+        plt.savefig(result_file_path)
         
-        plt.savefig("feature_map.png")
-
-        # plt.savefig(result_file_path)
+        # plt.savefig("feature_map.png")
         # input("continue.....")
 
 
